@@ -19,12 +19,10 @@
 # pylint: disable=C0111,too-many-arguments,too-many-instance-attributes,too-many-locals,redefined-outer-name,fixme
 # pylint: disable=superfluous-parens, no-member, invalid-name
 import sys
-sys.path.insert(0, "../../python")
-import numpy as np
 import mxnet as mx
+from lstm import lstm_inference_symbol
 
-from lstm import LSTMState, LSTMParam, lstm, lstm_inference_symbol
-from rnn import RNNState, RNNParam, RNNModel, rnn
+sys.path.insert(0, "../../python")
 
 
 class LSTMInferenceModel(object):
@@ -65,7 +63,7 @@ class LSTMInferenceModel(object):
         self.input_arr = mx.nd.zeros(data_shape[0][1])
 
     def forward(self, input_data, new_seq=False):
-        if new_seq == True:
+        if new_seq is True:
             for key in self.states_dict.keys():
                 self.executor.arg_dict[key][:] = 0.
         input_data.copyto(self.executor.arg_dict["data"])

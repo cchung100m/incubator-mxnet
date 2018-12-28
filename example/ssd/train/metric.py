@@ -14,9 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Generate the metric to evaluate the Single Shot MultiBox Object Detector
+"""
 import numpy as np
+import mxnet as mx
 
 
 class MultiBoxMetric(mx.metric.EvalMetric):

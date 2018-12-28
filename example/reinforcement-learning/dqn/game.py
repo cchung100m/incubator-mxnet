@@ -14,11 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-
+"""
+Define helper functions for atari game
+"""
 DEFAULT_MAX_EPISODE_STEP = 1000000
 
+
 class Game(object):
+    """
+    Generate helper function to control atari game
+    """
     def __init__(self):
         self.total_reward = 0
         self.episode_reward = 0

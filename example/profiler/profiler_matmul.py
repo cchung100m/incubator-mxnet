@@ -15,10 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+using MXNet profiler to generate profiling results in json files.
+"""
+
 from __future__ import print_function
-import mxnet as mx
 import argparse
 import time
+import mxnet as mx
 
 
 def parse_args():

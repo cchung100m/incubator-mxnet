@@ -14,26 +14,22 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate the helper functions to DQN for atari game
+"""
 from __future__ import absolute_import, division, print_function
 
 import os
-import numpy
+import time
 import json
 import sys
 import re
-import scipy.signal
 import logging
 import ast
 import inspect
-import collections
 import numbers
-try:
-    import cPickle as pickle
-except:
-    import pickle
-from collections import namedtuple, OrderedDict
-import time
+import numpy
+import scipy.signal
 import mxnet as mx
 import mxnet.ndarray as nd
 
@@ -61,6 +57,9 @@ def get_saving_path(prefix="", epoch=None):
 
 
 def logging_config(name=None, level=logging.DEBUG, console_level=logging.DEBUG):
+    """
+    Load the configuration of logger
+    """
     if name is None:
         name = inspect.stack()[1][1].split('.')[0]
     folder = os.path.join(os.getcwd(), name)
@@ -86,7 +85,7 @@ def save_params(dir_path=os.curdir, epoch=None, name="", params=None, aux_states
                 ctx=mx.cpu()):
     prefix = os.path.join(dir_path, name)
     _, param_saving_path, _ = get_saving_path(prefix, epoch)
-    if not os.path.isdir(dir_path) and not (dir_path == ""):
+    if not os.path.isdir(dir_path) and (dir_path != ""):
         os.makedirs(dir_path)
     save_dict = {('arg:%s' % k): v.copyto(ctx) for k, v in params.items()}
     save_dict.update({('aux:%s' % k): v.copyto(ctx) for k, v in aux_states.items()})
@@ -108,11 +107,11 @@ def quick_save_json(dir_path=os.curdir, file_name="", content=None):
         os.makedirs(dir_path)
     with open(file_path, 'w') as fp:
         json.dump(content, fp)
-    logging.info('Save json into %s' % file_path)
+    logging.info('Save json into %s', file_path)
 
 
 def safe_eval(expr):
-    if type(expr) is str:
+    if isinstance(expr, str):
         return ast.literal_eval(expr)
     else:
         return expr
@@ -148,9 +147,7 @@ def sample_categorical(prob, rng):
     """
     ret = numpy.empty(prob.shape[0], dtype=numpy.float32)
     for ind in range(prob.shape[0]):
-        ret[ind] = numpy.searchsorted(numpy.cumsum(prob[ind]), rng.rand()).clip(min=0.0,
-                                                                                max=prob.shape[
-                                                                                        1] - 0.5)
+        ret[ind] = numpy.searchsorted(numpy.cumsum(prob[ind]), rng.rand()).clip(min=0.0, max=prob.shape[1] - 0.5)
     return ret
 
 
@@ -219,6 +216,7 @@ def npy_onehot(x, num):
     ret = ret.reshape(x.shape + (num,))
     return ret
 
+
 def npy_binary_entropy(prediction, target):
     assert prediction.shape == target.shape
     return - (numpy.log(prediction + 1E-9) * target +
@@ -230,10 +228,13 @@ def block_all(sym_list):
 
 
 def load_params(dir_path="", epoch=None, name=""):
+    """
+    Load the pre-trained parameters of DQN
+    """
     prefix = os.path.join(dir_path, name)
     _, param_loading_path, _ = get_saving_path(prefix, epoch)
     while not os.path.isfile(param_loading_path):
-        logging.info("in load_param, %s Not Found!" % param_loading_path)
+        logging.info("in load_param, %s Not Found!", param_loading_path)
         time.sleep(60)
     save_dict = nd.load(param_loading_path)
     arg_params = {}
@@ -279,7 +280,7 @@ def update_on_kvstore(kv, params, params_grad):
 
 
 def parse_ctx(ctx_args):
-    ctx = re.findall('([a-z]+)(\d*)', ctx_args)
+    ctx = re.findall(r'([a-z]+)(\d*)', ctx_args)
     ctx = [(device, int(num)) if len(num) > 0 else (device, 0) for device, num in ctx]
     return ctx
 
@@ -299,6 +300,9 @@ def get_npy_list(ndarray_list):
 
 
 def get_sym_list(syms, default_names=None, default_shapes=None):
+    """
+    Generate the list of symbol
+    """
     if syms is None and default_names is not None:
         if default_shapes is not None:
             return [mx.sym.Variable(name=name, shape=shape) for (name, shape)
@@ -322,6 +326,9 @@ def get_sym_list(syms, default_names=None, default_shapes=None):
 
 
 def get_numeric_list(values, typ, expected_len=None):
+    """
+    Generate the list of numeric value
+    """
     if isinstance(values, numbers.Number):
         if expected_len is not None:
             return [typ(values)] * expected_len
@@ -333,11 +340,11 @@ def get_numeric_list(values, typ, expected_len=None):
         try:
             ret = [typ(value) for value in values]
             return ret
-        except(ValueError):
-            print("Need iterable with numeric elements, received: %s" %str(values))
+        except ValueError:
+            print("Need iterable with numeric elements, received: %s" % str(values))
             sys.exit(1)
     else:
-        raise ValueError("Unaccepted value type, values=%s" %str(values))
+        raise ValueError("Unaccepted value type, values=%s" % str(values))
 
 
 def get_int_list(values, expected_len=None):

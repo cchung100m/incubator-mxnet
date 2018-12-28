@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate Gated Recurrent Neural Networks on DeepSpeech2 of Baidu
+"""
 from collections import namedtuple
 
 import mxnet as mx
@@ -32,7 +34,8 @@ GRUModel = namedtuple("GRUModel", ["rnn_exec", "symbol",
                                    "param_blocks"])
 
 
-def gru(num_hidden, indata, prev_state, param, seqidx, layeridx, dropout=0., is_batchnorm=False, gamma=None, beta=None, name=None):
+def gru(num_hidden, indata, prev_state, param, seqidx, layeridx, dropout=0., is_batchnorm=False, gamma=None,
+        beta=None, name=None):
     """
     GRU Cell symbol
     Reference:
@@ -80,8 +83,11 @@ def gru(num_hidden, indata, prev_state, param, seqidx, layeridx, dropout=0., is_
     return GRUState(h=next_h)
 
 
-def gru_unroll(net, num_gru_layer, seq_len,  num_hidden_gru_list, dropout=0., is_batchnorm=False, prefix="",
+def gru_unroll(net, num_gru_layer, seq_len, num_hidden_gru_list, dropout=0., is_batchnorm=False, prefix="",
                direction="forward", is_bucketing=False):
+    """
+    Generate gated recurrent unit(GRU)
+    """
     if num_gru_layer > 0:
         param_cells = []
         last_states = []
@@ -173,6 +179,9 @@ def gru_unroll(net, num_gru_layer, seq_len,  num_hidden_gru_list, dropout=0., is
 
 
 def bi_gru_unroll(net, num_gru_layer, seq_len, num_hidden_gru_list, dropout=0., is_batchnorm=False, is_bucketing=False):
+    """
+    Determine bi-direction GRU unroll
+    """
     if num_gru_layer > 0:
         net_forward = gru_unroll(net=net,
                                  num_gru_layer=num_gru_layer,
@@ -201,6 +210,9 @@ def bi_gru_unroll(net, num_gru_layer, seq_len, num_hidden_gru_list, dropout=0., 
 
 def bi_gru_unroll_two_input_two_output(net1, net2, num_gru_layer, seq_len, num_hidden_gru_list, dropout=0.,
                                        is_batchnorm=False, is_bucketing=False):
+    """
+    Generate forwarding and backward calculation with GRU unroll
+    """
     if num_gru_layer > 0:
         net_forward = gru_unroll(net=net1,
                                  num_gru_layer=num_gru_layer,

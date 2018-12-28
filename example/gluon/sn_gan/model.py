@@ -15,9 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Implements Spectral Normalization for Generative Adversarial Networks based on CIFAR10 dataset.
+
 # This example is inspired by https://github.com/jason71995/Keras-GAN-Library,
 # https://github.com/kazizzad/DCGAN-Gluon-MxNet/blob/master/MxnetDCGAN.ipynb
 # https://github.com/apache/incubator-mxnet/blob/master/example/gluon/dc_gan/dcgan.py
+"""
 
 import mxnet as mx
 from mxnet import nd
@@ -27,6 +31,7 @@ from mxnet.gluon import Block
 
 EPSILON = 1e-08
 POWER_ITERATION = 1
+
 
 class SNConv2D(Block):
     """ Customized Conv2D to feed the conv with the weight that we apply spectral normalization """

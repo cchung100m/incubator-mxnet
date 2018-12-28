@@ -14,11 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate Warp CTC for loss calculations
+"""
 import mxnet as mx
 
 
 def warpctc_layer(net, label, num_label, seq_len, character_classes_count):
+    """
+    Determine warpctc layers with weight and bias
+    """
     cls_weight = mx.sym.Variable("cls_weight")
     cls_bias = mx.sym.Variable("cls_bias")
     fc_seq = []

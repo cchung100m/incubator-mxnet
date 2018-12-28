@@ -55,6 +55,7 @@ with net.name_scope():
 
 # data
 
+
 def transformer(data, label):
     data = data.reshape((-1,)).astype(np.float32)/255
     return data, label

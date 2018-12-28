@@ -18,16 +18,18 @@
 # under the License.
 
 # -*- coding: utf-8 -*-
-
-#Todo: Ensure skip connection implementation is correct
+"""
+Implement LSTNet
+"""
+# Todo: Ensure skip connection implementation is correct
 
 import os
 import math
+import argparse
+import logging
 import numpy as np
 import pandas as pd
 import mxnet as mx
-import argparse
-import logging
 import metrics
 
 logging.basicConfig(level=logging.DEBUG)
@@ -71,6 +73,7 @@ parser.add_argument('--save-period', type=int, default=20,
 parser.add_argument('--model_prefix', type=str, default='electricity_model',
                     help='prefix for saving model params')
 
+
 def build_iters(data_dir, max_records, q, horizon, splits, batch_size):
     """
     Load & generate training examples from multivariate time series data
@@ -99,30 +102,34 @@ def build_iters(data_dir, max_records, q, horizon, splits, batch_size):
     # Split into training and testing data
     training_examples = int(x_ts.shape[0] * splits[0])
     valid_examples = int(x_ts.shape[0] * splits[1])
-    x_train, y_train = x_ts[:training_examples], \
-                       y_ts[:training_examples]
+    x_train, y_train = x_ts[:training_examples], y_ts[:training_examples]
     x_valid, y_valid = x_ts[training_examples:training_examples + valid_examples], \
                        y_ts[training_examples:training_examples + valid_examples]
     x_test, y_test = x_ts[training_examples + valid_examples:], \
                      y_ts[training_examples + valid_examples:]
 
-    #build iterators to feed batches to network
-    train_iter = mx.io.NDArrayIter(data=x_train,
-                                   label=y_train,
-                                   batch_size=batch_size)
-    val_iter = mx.io.NDArrayIter(data=x_valid,
-                                 label=y_valid,
-                                 batch_size=batch_size)
-    test_iter = mx.io.NDArrayIter(data=x_test,
-                                  label=y_test,
-                                  batch_size=batch_size)
-    return train_iter, val_iter, test_iter
+    # build iterators to feed batches to network
+    train_iterator = mx.io.NDArrayIter(data=x_train, label=y_train, batch_size=batch_size)
+    val_iterator = mx.io.NDArrayIter(data=x_valid, label=y_valid, batch_size=batch_size)
+    test_iterator = mx.io.NDArrayIter(data=x_test, label=y_test, batch_size=batch_size)
+    return train_iterator, val_iterator, test_iterator
 
-def sym_gen(train_iter, q, filter_list, num_filter, dropout, rcells, skiprcells, seasonal_period, time_interval):
 
-    input_feature_shape = train_iter.provide_data[0][1]
-    X = mx.symbol.Variable(train_iter.provide_data[0].name)
-    Y = mx.sym.Variable(train_iter.provide_label[0].name)
+def sym_gen(train_iterator, q, filter_list, num_filter, dropout,
+            rcells_list, skiprcells_list, seasonal_period, time_interval):
+    """
+    Create LST network and process data
+    :return:
+    loss_grad: float
+        output of linear regression
+    v.name: list of string
+        column names of input data
+    v.name:  list of string
+        column names of label
+    """
+    input_feature_shape = train_iterator.provide_data[0][1]
+    X = mx.symbol.Variable(train_iterator.provide_data[0].name)
+    Y = mx.sym.Variable(train_iterator.provide_label[0].name)
 
     # reshape data before applying convolutional layer (takes 4D shape incase you ever work with images)
     conv_input = mx.sym.reshape(data=X, shape=(0, 1, q, -1))
@@ -146,17 +153,17 @@ def sym_gen(train_iter, q, filter_list, num_filter, dropout, rcells, skiprcells,
     # RNN Component
     ###############
     stacked_rnn_cells = mx.rnn.SequentialRNNCell()
-    for i, recurrent_cell in enumerate(rcells):
+    for i, recurrent_cell in enumerate(rcells_list):
         stacked_rnn_cells.add(recurrent_cell)
         stacked_rnn_cells.add(mx.rnn.DropoutCell(dropout))
     outputs, states = stacked_rnn_cells.unroll(length=q, inputs=cnn_reg_features, merge_outputs=False)
-    rnn_features = outputs[-1] #only take value from final unrolled cell for use later
+    rnn_features = outputs[-1]  # only take value from final unrolled cell for use later
 
     ####################
     # Skip-RNN Component
     ####################
     stacked_rnn_cells = mx.rnn.SequentialRNNCell()
-    for i, recurrent_cell in enumerate(skiprcells):
+    for i, recurrent_cell in enumerate(skiprcells_list):
         stacked_rnn_cells.add(recurrent_cell)
         stacked_rnn_cells.add(mx.rnn.DropoutCell(dropout))
     outputs, states = stacked_rnn_cells.unroll(length=q, inputs=cnn_reg_features, merge_outputs=False)
@@ -185,36 +192,51 @@ def sym_gen(train_iter, q, filter_list, num_filter, dropout, rcells, skiprcells,
     neural_output = mx.sym.FullyConnected(data=neural_components, num_hidden=input_feature_shape[2])
     model_output = neural_output + ar_output
     loss_grad = mx.sym.LinearRegressionOutput(data=model_output, label=Y)
-    return loss_grad, [v.name for v in train_iter.provide_data], [v.name for v in train_iter.provide_label]
+    return loss_grad, [v.name for v in train_iterator.provide_data], [v.name for v in train_iterator.provide_label]
 
-def train(symbol, train_iter, valid_iter, data_names, label_names):
-    devs = mx.cpu() if args.gpus is None or args.gpus is '' else [mx.gpu(int(i)) for i in args.gpus.split(',')]
-    module = mx.mod.Module(symbol, data_names=data_names, label_names=label_names, context=devs)
-    module.bind(data_shapes=train_iter.provide_data, label_shapes=train_iter.provide_label)
+
+def train(symbol_ctx, train_iterator, val_iterator, data_names_list, label_names_list):
+    """
+    Train LSTNET
+
+    :param symbol_ctx: content
+    :param train_iterator:  iterator of train data
+    :param val_iterator: iterator of test data
+    :param data_names_list: list of string
+        column names
+    :param label_names_list: list of string
+        dimensions of classification
+    """
+    devs = mx.cpu() if args.gpus is None else [mx.gpu(int(i)) for i in args.gpus.split(',')]
+    module = mx.mod.Module(symbol_ctx, data_names=data_names_list, label_names=label_names_list, context=devs)
+    module.bind(data_shapes=train_iterator.provide_data, label_shapes=train_iterator.provide_label)
     module.init_params(mx.initializer.Uniform(0.1))
     module.init_optimizer(optimizer=args.optimizer, optimizer_params={'learning_rate': args.lr})
 
     for epoch in range(1, args.num_epochs+1):
-        train_iter.reset()
-        val_iter.reset()
-        for batch in train_iter:
+        train_iterator.reset()
+        val_iterator.reset()
+        for batch in train_iterator:
             module.forward(batch, is_train=True)  # compute predictions
             module.backward()  # compute gradients
-            module.update() # update parameters
+            module.update()  # update parameters
 
-        train_pred = module.predict(train_iter).asnumpy()
-        train_label = train_iter.label[0][1].asnumpy()
+        train_pred = module.predict(train_iterator).asnumpy()
+        train_label = train_iterator.label[0][1].asnumpy()
         print('\nMetrics: Epoch %d, Training %s' % (epoch, metrics.evaluate(train_pred, train_label)))
 
-        val_pred = module.predict(val_iter).asnumpy()
-        val_label = val_iter.label[0][1].asnumpy()
+        val_pred = module.predict(val_iterator).asnumpy()
+        val_label = val_iterator.label[0][1].asnumpy()
         print('Metrics: Epoch %d, Validation %s' % (epoch, metrics.evaluate(val_pred, val_label)))
 
         if epoch % args.save_period == 0 and epoch > 1:
-            module.save_checkpoint(prefix=os.path.join("../models/", args.model_prefix), epoch=epoch, save_optimizer_states=False)
+            module.save_checkpoint(prefix=os.path.join("../models/", args.model_prefix), epoch=epoch,
+                                   save_optimizer_states=False)
         if epoch == args.num_epochs:
-            module.save_checkpoint(prefix=os.path.join("../models/", args.model_prefix), epoch=epoch, save_optimizer_states=False)
- 
+            module.save_checkpoint(prefix=os.path.join("../models/", args.model_prefix), epoch=epoch,
+                                   save_optimizer_states=False)
+
+
 if __name__ == '__main__':
     # parse args
     args = parser.parse_args()
@@ -228,7 +250,8 @@ if __name__ == '__main__':
         raise AssertionError("size of skip connections cannot exceed q")
 
     # Build data iterators
-    train_iter, val_iter, test_iter = build_iters(args.data_dir, args.max_records, args.q, args.horizon, args.splits, args.batch_size)
+    train_iter, val_iter, test_iter = build_iters(args.data_dir, args.max_records, args.q, args.horizon, args.splits,
+                                                  args.batch_size)
 
     # Choose cells for recurrent layers: each cell will take the output of the previous cell in the list
     rcells = [mx.rnn.GRUCell(num_hidden=args.recurrent_state_size)]
@@ -236,7 +259,8 @@ if __name__ == '__main__':
 
     # Define network symbol
     symbol, data_names, label_names = sym_gen(train_iter, args.q, args.filter_list, args.num_filters,
-                                              args.dropout, rcells, skiprcells, args.seasonal_period, args.time_interval)
+                                              args.dropout, rcells, skiprcells, args.seasonal_period,
+                                              args.time_interval)
 
     # train cnn model
     train(symbol, train_iter, val_iter, data_names, label_names)

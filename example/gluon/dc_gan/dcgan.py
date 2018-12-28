@@ -14,24 +14,24 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import matplotlib as mpl
-mpl.use('Agg')
-from matplotlib import pyplot as plt
-
+"""
+Deep Convolutional Generative Adversarial Networks(DCGAN) implementation with Apache MXNet GLUON.
+"""
 import argparse
-import mxnet as mx
-from mxnet import gluon
-from mxnet.gluon import nn
-from mxnet import autograd
-import numpy as np
 import logging
 from datetime import datetime
 import os
 import time
-
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import mxnet as mx
+from mxnet import gluon
+from mxnet.gluon import nn
+from mxnet import autograd
 from inception_score import get_inception_score
 
+mpl.use('Agg')
 
 def fill_buf(buf, i, img, shape):
     """
@@ -48,7 +48,7 @@ def fill_buf(buf, i, img, shape):
     sx = (i%m)*shape[0]
     sy = (i//m)*shape[1]
     buf[sy:sy+shape[1], sx:sx+shape[0], :] = img
-    return None
+
 
 
 def visual(title, X, name):
@@ -79,9 +79,11 @@ parser.add_argument('--dataset', type=str, default='cifar10', help='dataset to u
 parser.add_argument('--batch-size', type=int, default=64, help='input batch size, default is 64')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector, default is 100')
 parser.add_argument('--ngf', type=int, default=64, help='the channel of each generator filter layer, default is 64.')
-parser.add_argument('--ndf', type=int, default=64, help='the channel of each descriminator filter layer, default is 64.')
+parser.add_argument('--ndf', type=int, default=64, help='the channel of each descriminator filter layer, '
+                                                        'default is 64.')
 parser.add_argument('--nepoch', type=int, default=25, help='number of epochs to train for, default is 25.')
-parser.add_argument('--niter', type=int, default=10, help='save generated images and inception_score per niter iters, default is 100.')
+parser.add_argument('--niter', type=int, default=10, help='save generated images and inception_score per niter iters, '
+                                                          'default is 100.')
 parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
@@ -89,7 +91,8 @@ parser.add_argument('--netG', default='', help="path to netG (to continue traini
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
 parser.add_argument('--outf', default='./results', help='folder to output images and model checkpoints')
 parser.add_argument('--check-point', default=True, help="save results at each epoch or not")
-parser.add_argument('--inception_score', type=bool, default=True, help='To record the inception_score, default is True.')
+parser.add_argument('--inception_score', type=bool, default=True, help='To record the inception_score, '
+                                                                       'default is True.')
 
 opt = parser.parse_args()
 print(opt)
@@ -115,6 +118,20 @@ if not os.path.exists(outf):
 
 
 def transformer(data, label):
+    """
+    pre-process the image data and label
+    :param data: int array
+        list of image
+    :param label: int
+        label to classification
+
+    Returns:
+    ----------
+    data: int array
+        list of image
+    label: int
+        label to classification
+    """
     # resize to 64x64
     data = mx.image.imresize(data, 64, 64)
     # transpose from (64, 64, 3) to (3, 64, 64)
@@ -128,9 +145,20 @@ def transformer(data, label):
 
 
 # get dataset with the batch_size num each time
-def get_dataset(dataset):
+def get_dataset(dataset_name):
+    """
+    Load the dataset and split dataset to train/valid data
+
+    :param dataset_name: string
+
+    Returns:
+    train_data: int array
+        training dataset
+    val_data: int array
+        valid dataset
+    """
     # mnist
-    if dataset == "mnist":
+    if dataset_name == "mnist":
         train_data = gluon.data.DataLoader(
             gluon.data.vision.MNIST('./data', train=True, transform=transformer),
             batch_size, shuffle=True, last_batch='discard')
@@ -139,7 +167,7 @@ def get_dataset(dataset):
             gluon.data.vision.MNIST('./data', train=False, transform=transformer),
             batch_size, shuffle=False)
     # cifar10
-    elif dataset == "cifar10":
+    elif dataset_name == "cifar10":
         train_data = gluon.data.DataLoader(
             gluon.data.vision.CIFAR10('./data', train=True, transform=transformer),
             batch_size, shuffle=True, last_batch='discard')
@@ -152,6 +180,12 @@ def get_dataset(dataset):
 
 
 def get_netG():
+    """
+    Construct the generator of net
+
+    Returns:
+        netG: generator
+    """
     # build the generator
     netG = nn.Sequential()
     with netG.name_scope():
@@ -180,6 +214,12 @@ def get_netG():
 
 
 def get_netD():
+    """
+    Construct the discriminator of net
+
+    Returns:
+        netD: discriminator
+    """
     # build the discriminator
     netD = nn.Sequential()
     with netD.name_scope():
@@ -206,6 +246,25 @@ def get_netD():
 
 
 def get_configurations(netG, netD):
+    """
+    Construct net trainer for the generator, the discriminator, and loss function
+    Parameters:
+    ----------
+    netG: nn.Sequential()
+        generator of net
+    netD: nn.Sequential()
+        discriminator of net
+
+    Returns:
+    ----------
+    loss: method of gluon
+        SoftMaxCrossEntropy loss function
+    netG: nn.Sequential()
+        generator of net
+    netD: nn.Sequential()
+        discriminator of net
+
+    """
     # loss
     loss = gluon.loss.SoftmaxCrossEntropyLoss()
 
@@ -233,6 +292,9 @@ def ins_save(inception_score):
 
 # main function
 def main():
+    """
+    Program entry point
+    """
     print("|------- new changes!!!!!!!!!")
     # to get the dataset and net configuration
     train_data, val_data = get_dataset(dataset)
@@ -299,8 +361,8 @@ def main():
             trainerG.step(opt.batch_size)
 
             name, acc = metric.get()
-            logging.info('discriminator loss = %f, generator loss = %f, binary training acc = %f at iter %d epoch %d'
-                         % (mx.nd.mean(errD).asscalar(), mx.nd.mean(errG).asscalar(), acc, iter, epoch))
+            logging.info('discriminator loss = %f, generator loss = %f, binary training acc = %f at iter %d epoch %d',
+                         mx.nd.mean(errD).asscalar(), mx.nd.mean(errG).asscalar(), acc, iter, epoch)
             if iter % niter == 0:
                 visual('gout', fake.asnumpy(), name=os.path.join(outf, 'fake_img_iter_%d.png' % iter))
                 visual('data', data.asnumpy(), name=os.path.join(outf, 'real_img_iter_%d.png' % iter))
@@ -316,13 +378,13 @@ def main():
 
         name, acc = metric.get()
         metric.reset()
-        logging.info('\nbinary training acc at epoch %d: %s=%f' % (epoch, name, acc))
-        logging.info('time: %f' % (time.time() - tic))
+        logging.info('\nbinary training acc at epoch %d: %s=%f', epoch, name, acc)
+        logging.info('time: %f', time.time() - tic)
 
         # save check_point
         if check_point:
-            netG.save_parameters(os.path.join(outf,'generator_epoch_%d.params' %epoch))
-            netD.save_parameters(os.path.join(outf,'discriminator_epoch_%d.params' % epoch))
+            netG.save_parameters(os.path.join(outf, 'generator_epoch_%d.params' %epoch))
+            netD.save_parameters(os.path.join(outf, 'discriminator_epoch_%d.params' % epoch))
 
     # save parameter
     netG.save_parameters(os.path.join(outf, 'generator.params'))
@@ -335,6 +397,6 @@ def main():
 
 if __name__ == '__main__':
     if opt.inception_score:
-        print("Use inception_score to metric this DCgan model, the reusult is save as a picture named \"inception_score.png\"!")
+        print("Use inception_score to metric this DCgan model, "
+              "the reusult is save as a picture named \"inception_score.png\"!")
     main()
-

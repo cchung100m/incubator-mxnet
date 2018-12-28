@@ -18,7 +18,7 @@
 """Random projection layers in MXNet as custom python ops.
 Currently slow and memory-inefficient, but functional.
 """
-import os
+
 import numpy as np
 import mxnet as mx
 
@@ -38,7 +38,7 @@ class RandomBagOfWordsProjection(mx.operator.CustomOp):
         super(RandomBagOfWordsProjection, self).__init__()
         self._vocab = vocab_size
         self._proj_dim = output_dim
-        #NOTE: This naive implementation is slow and uses lots of memory.
+        # NOTE: This naive implementation is slow and uses lots of memory.
         # Should use something smarter to not instantiate this matrix.
         rs = np.random.RandomState(seed=random_seed)
         self.W = self.random_unit_vecs(self._vocab, self._proj_dim, rs)
@@ -46,7 +46,7 @@ class RandomBagOfWordsProjection(mx.operator.CustomOp):
     def random_unit_vecs(self, num_vecs, num_dims, rs):
         W = rs.normal(size=(num_vecs, num_dims))
         Wlen = np.linalg.norm(W, axis=1)
-        W_unit = W / Wlen[:,None]
+        W_unit = W / Wlen[:, None]
         return W_unit
 
     def _get_mask(self, idx, in_data):
@@ -54,26 +54,32 @@ class RandomBagOfWordsProjection(mx.operator.CustomOp):
         In this version, we have no weights to apply.
         """
         mask = idx >= 0  # bool False for -1 values that should be removed. shape=(b,mnz)
-        mask = np.expand_dims(mask,2) # shape = (b,mnz,1)
+        mask = np.expand_dims(mask, 2)  # shape = (b,mnz,1)
         mask = np.repeat(mask, self._proj_dim, axis=2) # shape = (b,mnz,d)
         return mask
 
     def forward(self, is_train, req, in_data, out_data, aux):
-        #Note: see this run in notebooks/howto-numpy-random-proj.ipynb
+        """
+        Run forward on Random projection layer for sparse bag-of-words (n-hot) inputs
+        """
+        # ote: see this run in notebooks/howto-numpy-random-proj.ipynb
         # Notation for shapes: b = batch_size, mnz = max_nonzero, d = proj_dim
-        idx = in_data[0].asnumpy().astype('int32') # shape=(b,mnz)
+        idx = in_data[0].asnumpy().astype('int32')  # shape=(b,mnz)
 
         wd = self.W[idx]  # shape= (b,mnz,d)
         mask = self._get_mask(idx, in_data)
-        wd = np.multiply(wd,mask)  # shape=(b,mnz,d), but zero'd out non-masked
-        y = np.sum(wd,axis=1)  # shape=(b,d)
-        mxy = mx.nd.array(y)  #NOTE: this hangs if the environment variables aren't set correctly
+        wd = np.multiply(wd, mask)  # shape=(b,mnz,d), but zero'd out non-masked
+        y = np.sum(wd, axis=1)  # shape=(b,d)
+        mxy = mx.nd.array(y)  # NOTE: this hangs if the environment variables aren't set correctly
         # See https://github.com/dmlc/mxnet/issues/3813
         self.assign(out_data[0], req[0], mxy)
 
 
 @mx.operator.register("SparseBOWProj")
 class RandomBagOfWordsProjectionProp(mx.operator.CustomOpProp):
+    """
+    Get Random Bag of Word Projection
+    """
     def __init__(self, vocab_size, output_dim):
         # need_top_grad=True means this is not a loss layer
         super(RandomBagOfWordsProjectionProp, self).__init__(need_top_grad=True)
@@ -111,14 +117,17 @@ class SparseRandomProjection(RandomBagOfWordsProjection):
         """
         val = in_data[1].asnumpy()  # shape=(b,mnz)
         mask = idx >= 0  # bool False for -1 values that should be removed. shape=(b,mnz)
-        mask = np.multiply(mask,val)  # All (b,mnz)
-        mask = np.expand_dims(mask,2) # shape = (b,mnz,1)
+        mask = np.multiply(mask, val)  # All (b,mnz)
+        mask = np.expand_dims(mask, 2)  # shape = (b,mnz,1)
         mask = np.repeat(mask, self._proj_dim, axis=2) # shape = (b,mnz,d)
         return mask
 
 
 @mx.operator.register("SparseRandomProjection")
 class SparseRandomProjectionProp(RandomBagOfWordsProjectionProp):
+    """
+    Generate helper function to handle Sparse Random Projection
+    """
 
     def list_arguments(self):
         return ['indexes', 'values']
@@ -130,21 +139,19 @@ class SparseRandomProjectionProp(RandomBagOfWordsProjectionProp):
         # check that indexes and values are the same shape.
         if in_shape[0] != in_shape[1]:
             raise ValueError("Input shapes differ. indexes:%s. values:%s. must be same"
-                    % (str(in_shape[0]),str(in_shape[1])))
-        return super(SparseRandomProjectionProp,self).infer_shape(in_shape)
+                             % (str(in_shape[0]), str(in_shape[1])))
+        return super(SparseRandomProjectionProp, self).infer_shape(in_shape)
 
 
 if __name__ == "__main__":
     print("Simple test of proj layer")
     data = mx.symbol.Variable('data')
     vals = mx.symbol.Variable('vals')
-    net = mx.symbol.Custom(indexes=data, values=vals, name='rproj',
-            op_type='SparseRandomProjection',
-            vocab_size=999, output_dim=29)
-    d = mx.nd.zeros(shape=(3,100))
-    v = mx.nd.ones(shape=(3,100))
-    e = net.bind(ctx=mx.cpu(), args={'data':d, 'vals':v})
+    net = mx.symbol.Custom(indexes=data, values=vals, name='rproj', op_type='SparseRandomProjection',
+                           vocab_size=999, output_dim=29)
+    d = mx.nd.zeros(shape=(3, 100))
+    v = mx.nd.ones(shape=(3, 100))
+    e = net.bind(ctx=mx.cpu(), args={'data': d, 'vals': v})
     e.forward()
     print(e.outputs[0].asnumpy())
     print("Done with proj layer test")
-

@@ -17,18 +17,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+implementation of this state of the art entity recognition model.
+"""
 # -*- coding: utf-8 -*-
 
 from collections import Counter
 import itertools
-import iterators
 import os
-import numpy as np
-import pandas as pd
-import mxnet as mx
 import argparse
 import pickle
 import logging
+import numpy as np
+import pandas as pd
+import iterators
+import mxnet as mx
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -77,14 +80,17 @@ parser.add_argument('--save-period', type=int, default=20,
 parser.add_argument('--model_prefix', type=str, default='electricity_model',
                     help='prefix for saving model params')
 
+
 def save_obj(obj, name):
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
 
 def save_model():
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
     return mx.callback.do_checkpoint(os.path.join(args.output_dir, "checkpoint"), args.save_period)
+
 
 def build_vocab(nested_list):
     """
@@ -100,6 +106,7 @@ def build_vocab(nested_list):
     # Mapping from label to index
     vocabulary = {x: i for i, x in enumerate(vocabulary_inv)}
     return vocabulary, vocabulary_inv
+
 
 def build_iters(data_dir, max_records, train_fraction, batch_size, buckets=None):
     """
@@ -118,32 +125,34 @@ def build_iters(data_dir, max_records, train_fraction, batch_size, buckets=None)
     df = pd.read_pickle(os.path.join(data_dir, "ner_data.pkl"))[:max_records]
 
     # Get feature lists
-    entities=[list(array) for array in df["BILOU_tag"].values]
+    entities = [list(array) for array in df["BILOU_tag"].values]
     sentences = [list(array) for array in df["token"].values]
-    chars=[[[c for c in word] for word in sentence] for sentence in sentences]
+    chars = [[[c for c in word] for word in sentence] for sentence in sentences]
 
     # Build vocabularies
-    entity_to_index, index_to_entity = build_vocab(entities)
-    word_to_index, index_to_word = build_vocab(sentences)
-    char_to_index, index_to_char = build_vocab([np.array([c for c in word]) for word in index_to_word])
-    save_obj(entity_to_index, os.path.join(args.data_dir, "tag_to_index"))
+    entity_to_index_list, index_to_entity = build_vocab(entities)
+    word_to_index_list, index_to_word = build_vocab(sentences)
+    char_to_index_list, index_to_char = build_vocab([np.array([c for c in word]) for word in index_to_word])
+    save_obj(entity_to_index_list, os.path.join(args.data_dir, "tag_to_index"))
 
     # Map strings to integer values
-    indexed_entities=[list(map(entity_to_index.get, l)) for l in entities]
-    indexed_tokens=[list(map(word_to_index.get, l)) for l in sentences]
-    indexed_chars=[[list(map(char_to_index.get, word)) for word in sentence] for sentence in chars]
+    indexed_entities = [list(map(entity_to_index_list.get, l)) for l in entities]
+    indexed_tokens = [list(map(word_to_index_list.get, l)) for l in sentences]
+    indexed_chars = [[list(map(char_to_index_list.get, word)) for word in sentence] for sentence in chars]
 
     # Split into training and testing data
-    idx=int(len(indexed_tokens)*train_fraction)
+    idx = int(len(indexed_tokens)*train_fraction)
     X_token_train, X_char_train, Y_train = indexed_tokens[:idx], indexed_chars[:idx], indexed_entities[:idx]
     X_token_test, X_char_test, Y_test = indexed_tokens[idx:], indexed_chars[idx:], indexed_entities[idx:]
 
     # build iterators to feed batches to network
-    train_iter = iterators.BucketNerIter(sentences=X_token_train, characters=X_char_train, label=Y_train,
-                                         max_token_chars=5, batch_size=batch_size, buckets=buckets)
-    val_iter = iterators.BucketNerIter(sentences=X_token_test, characters=X_char_test, label=Y_test,
-                                         max_token_chars=train_iter.max_token_chars, batch_size=batch_size, buckets=train_iter.buckets)
-    return train_iter, val_iter, word_to_index, char_to_index, entity_to_index
+    train_iterator = iterators.BucketNerIter(sentences=X_token_train, characters=X_char_train, label=Y_train,
+                                             max_token_chars=5, batch_size=batch_size, buckets=buckets)
+    val_iterator = iterators.BucketNerIter(sentences=X_token_test, characters=X_char_test, label=Y_test,
+                                           max_token_chars=train_iterator.max_token_chars, batch_size=batch_size,
+                                           buckets=train_iterator.buckets)
+    return train_iterator, val_iterator, word_to_index_list, char_to_index_list, entity_to_index_list
+
 
 def sym_gen(seq_len):
     """
@@ -160,8 +169,10 @@ def sym_gen(seq_len):
     ###############################
     # Character embedding component
     ###############################
-    char_embeddings = mx.sym.Embedding(data=X_char_sent, input_dim=len(char_to_index), output_dim=args.char_embed, name='char_embed')
-    char_embeddings = mx.sym.reshape(data=char_embeddings, shape=(0,1,seq_len,-1,args.char_embed), name='char_embed2')
+    char_embeddings = mx.sym.Embedding(data=X_char_sent, input_dim=len(char_to_index),
+                                       output_dim=args.char_embed, name='char_embed')
+    char_embeddings = mx.sym.reshape(data=char_embeddings, shape=(0, 1, seq_len, -1, args.char_embed),
+                                     name='char_embed2')
 
     char_cnn_outputs = []
     for i, filter_size in enumerate(args.char_filter_list):
@@ -171,7 +182,8 @@ def sym_gen(seq_len):
         acti = mx.sym.Activation(data=convi, act_type='tanh')
         pooli = mx.sym.Pooling(data=acti, pool_type='max', kernel=(1, char_sentence_shape[2] - filter_size + 1, 1),
                                stride=(1, 1, 1), name="char_pool_layer_" + str(i))
-        pooli = mx.sym.transpose(mx.sym.Reshape(pooli, shape=(0, 0, 0)), axes=(0, 2, 1), name="cchar_conv_layer_" + str(i))
+        pooli = mx.sym.transpose(mx.sym.Reshape(pooli, shape=(0, 0, 0)), axes=(0, 2, 1),
+                                 name="cchar_conv_layer_" + str(i))
         char_cnn_outputs.append(pooli)
 
     # combine features from all filters & apply dropout
@@ -182,7 +194,8 @@ def sym_gen(seq_len):
     ##################################
     # Combine char and word embeddings
     ##################################
-    word_embeddings = mx.sym.Embedding(data=X_sent, input_dim=len(word_to_index), output_dim=args.word_embed, name='word_embed')
+    word_embeddings = mx.sym.Embedding(data=X_sent, input_dim=len(word_to_index), output_dim=args.word_embed,
+                                       name='word_embed')
     rnn_features = mx.sym.Concat(*[word_embeddings, regularized_cnn_char_features], dim=2, name='rnn input')
 
     ##############################
@@ -199,21 +212,24 @@ def sym_gen(seq_len):
 
     # reshape back to same shape as loss will be
     reshaped_fc = mx.sym.transpose(mx.sym.reshape(fc, shape=(-1, seq_len, len(entity_to_index))), axes=(0, 2, 1))
-    sm = mx.sym.SoftmaxOutput(data=reshaped_fc, label=Y, ignore_label=-1, use_ignore=True, multi_output=True, name='softmax')
+    sm = mx.sym.SoftmaxOutput(data=reshaped_fc, label=Y, ignore_label=-1, use_ignore=True, multi_output=True,
+                              name='softmax')
     return sm, [v.name for v in train_iter.provide_data], [v.name for v in train_iter.provide_label]
 
-def train(train_iter, val_iter):
+
+def train(train_iterator, val_iterator):
     import metrics
-    devs = mx.cpu() if args.gpus is None or args.gpus is '' else [mx.gpu(int(i)) for i in args.gpus.split(',')]
-    module = mx.mod.BucketingModule(sym_gen, train_iter.default_bucket_key, context=devs)
-    module.fit(train_data=train_iter,
-               eval_data=val_iter,
+    devs = mx.cpu() if args.gpus is None else [mx.gpu(int(i)) for i in args.gpus.split(',')]
+    module = mx.mod.BucketingModule(sym_gen, train_iterator.default_bucket_key, context=devs)
+    module.fit(train_data=train_iterator,
+               eval_data=val_iterator,
                eval_metric=metrics.composite_classifier_metrics(),
                optimizer=args.optimizer,
-               optimizer_params={'learning_rate': args.lr },
+               optimizer_params={'learning_rate': args.lr},
                initializer=mx.initializer.Uniform(0.1),
                num_epoch=args.num_epochs,
                epoch_end_callback=save_model())
+
 
 if __name__ == '__main__':
     # parse args
@@ -223,7 +239,8 @@ if __name__ == '__main__':
 
     # Build data iterators
     train_iter, val_iter, word_to_index, char_to_index, entity_to_index = build_iters(args.data_dir, args.max_records,
-                                                                     args.train_fraction, args.batch_size, args.buckets)
+                                                                                      args.train_fraction,
+                                                                                      args.batch_size, args.buckets)
 
     # Define the recurrent layer
     bi_cell = mx.rnn.SequentialRNNCell()

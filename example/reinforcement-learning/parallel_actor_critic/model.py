@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Implement a variant of the A3C algorithm from Asynchronous Methods for Deep Reinforcement Learning.
+"""
 from itertools import chain
 import numpy as np
 import scipy.signal
@@ -22,6 +24,9 @@ import mxnet as mx
 
 
 class Agent(object):
+    """
+    Create the agent to environment
+    """
     def __init__(self, input_size, act_space, config):
         super(Agent, self).__init__()
         self.input_size = input_size
@@ -79,6 +84,9 @@ class Agent(object):
         return as_
 
     def train_step(self, env_xs, env_as, env_rs, env_vs):
+        """
+        Train process of DQN
+        """
         # NOTE(reed): Reshape to set the data shape.
         self.model.reshape([('data', (len(env_xs), self.input_size))])
 
@@ -88,11 +96,10 @@ class Agent(object):
         # Compute discounted rewards and advantages.
         advs = []
         gamma, lambda_ = self.config.gamma, self.config.lambda_
-        for i in range(len(env_vs)):
+        for i, element in env_vs:
             # Compute advantages using Generalized Advantage Estimation;
             # see eqn. (16) of [Schulman 2016].
-            delta_t = (env_rs[i] + gamma*np.array(env_vs[i][1:]) -
-                       np.array(env_vs[i][:-1]))
+            delta_t = (env_rs[i] + gamma*np.array(element[1:]) - np.array(element[:-1]))
             advs.extend(self._discount(delta_t, gamma * lambda_))
 
         # Negative generalized advantage estimations.

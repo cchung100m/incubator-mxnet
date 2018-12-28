@@ -14,11 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Load mxnet package
+"""
 try:
     import mxnet as mx
 except ImportError:
-    import os, sys
+    import os
+    import sys
     curr_path = os.path.abspath(os.path.dirname(__file__))
     sys.path.append(os.path.join(curr_path, "../../../python"))
-    import mxnet as mx

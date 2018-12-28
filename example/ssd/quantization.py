@@ -14,35 +14,31 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate quantization of Single Shot MultiBox Object Detector
+"""
 from __future__ import print_function
 import os
-import sys
-import importlib
-import mxnet as mx
-from dataset.iterator import DetRecordIter
-from config.config import cfg
-from evaluate.eval_metric import MApMetric, VOC07MApMetric
 import argparse
 import logging
-import time
-from symbol.symbol_factory import get_symbol
-from symbol import symbol_builder
-from mxnet.base import SymbolHandle, check_call, _LIB, mx_uint, c_str_array
-import ctypes
-from mxnet.contrib.quantization import *
-
-def save_symbol(fname, sym, logger=None):
-    if logger is not None:
-        logger.info('Saving symbol into file at %s' % fname)
-    sym.save(fname)
+from dataset.iterator import DetRecordIter
+from config.config import cfg
+import mxnet as mx
+from mxnet.contrib.quantization import quantize_model
+from mxnet.contrib.quantization import cpu
 
 
-def save_params(fname, arg_params, aux_params, logger=None):
-    if logger is not None:
-        logger.info('Saving params into file at %s' % fname)
-    save_dict = {('arg:%s' % k): v.as_in_context(cpu()) for k, v in arg_params.items()}
-    save_dict.update({('aux:%s' % k): v.as_in_context(cpu()) for k, v in aux_params.items()})
+def save_symbol(fname, symbol, log=None):
+    if log is not None:
+        log.info('Saving symbol into file at %s' % fname)
+    symbol.save(fname)
+
+
+def save_params(fname, arg_params_list, aux_params_list, log=None):
+    if log is not None:
+        log.info('Saving params into file at %s' % fname)
+    save_dict = {('arg:%s' % k): v.as_in_context(cpu()) for k, v in arg_params_list.items()}
+    save_dict.update({('aux:%s' % k): v.as_in_context(cpu()) for k, v in aux_params_list.items()})
     mx.nd.save(fname, save_dict)
 
 
@@ -59,12 +55,12 @@ if __name__ == '__main__':
                         help='shuffle the calibration dataset')
     parser.add_argument('--shuffle-chunk-seed', type=int, default=3982304,
                         help='shuffling chunk seed, see'
-                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight=imager#mxnet.io.ImageRecordIter'
-                             ' for more details')
+                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight='
+                             'imager#mxnet.io.ImageRecordIter for more details')
     parser.add_argument('--shuffle-seed', type=int, default=48564309,
                         help='shuffling seed, see'
-                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight=imager#mxnet.io.ImageRecordIter'
-                             ' for more details')
+                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight='
+                             'imager#mxnet.io.ImageRecordIter for more details')
     parser.add_argument('--calib-mode', type=str, default='naive',
                         help='calibration mode used for generating calibration table for the quantized symbol; supports'
                              ' 1. none: no calibration will be used. The thresholds for quantization will be calculated'
@@ -88,10 +84,10 @@ if __name__ == '__main__':
     logger = logging.getLogger('logger')
     logger.setLevel(logging.INFO)
 
-    logger.info('shuffle_dataset=%s' % args.shuffle_dataset)
+    logger.info('shuffle_dataset=%s', args.shuffle_dataset)
 
     calib_mode = args.calib_mode
-    logger.info('calibration mode set to %s' % calib_mode)
+    logger.info('calibration mode set to %s', calib_mode)
 
     # load FP32 models
     prefix, epoch = "./model/ssd_vgg16_reduced_300", 0
@@ -105,12 +101,12 @@ if __name__ == '__main__':
 
     # get batch size
     batch_size = args.batch_size
-    logger.info('batch size = %d for calibration' % batch_size)
+    logger.info('batch size = %d for calibration', batch_size)
 
     # get number of batches for calibration
     num_calib_batches = args.num_calib_batches
     if calib_mode != 'none':
-        logger.info('number of batches = %d for calibration' % num_calib_batches)
+        logger.info('number of batches = %d for calibration', num_calib_batches)
 
     # get image shape
     image_shape = '3,300,300'
@@ -120,31 +116,29 @@ if __name__ == '__main__':
     excluded_sym_names = []
     rgb_mean = '123,117,104'
     calib_layer = lambda name: name.endswith('_output')
-    for i in range(1,19):
+    for i in range(1, 19):
         excluded_sym_names += ['flatten'+str(i)]
-    excluded_sym_names += ['relu4_3_cls_pred_conv',
-                            'relu7_cls_pred_conv',
-                            'relu4_3_loc_pred_conv']
+    excluded_sym_names += ['relu4_3_cls_pred_conv', 'relu7_cls_pred_conv', 'relu4_3_loc_pred_conv']
     if exclude_first_conv:
         excluded_sym_names += ['conv1_1']
 
     label_name = 'label'
-    logger.info('label_name = %s' % label_name)
+    logger.info('label_name = %s', label_name)
 
     data_shape = tuple([int(i) for i in image_shape.split(',')])
-    logger.info('Input data shape = %s' % str(data_shape))
+    logger.info('Input data shape = %s', str(data_shape))
 
-    logger.info('rgb_mean = %s' % rgb_mean)
+    logger.info('rgb_mean = %s', rgb_mean)
     rgb_mean = [float(i) for i in rgb_mean.split(',')]
     mean_args = {'mean_r': rgb_mean[0], 'mean_g': rgb_mean[1], 'mean_b': rgb_mean[2]}
 
     if calib_mode == 'none':
-        logger.info('Quantizing FP32 model %s' % args.model)
+        logger.info('Quantizing FP32 model %s', args.model)
         qsym, qarg_params, aux_params = quantize_model(sym=sym, arg_params=arg_params, aux_params=aux_params,
                                                        ctx=ctx, excluded_sym_names=excluded_sym_names,
                                                        calib_mode=calib_mode, quantized_dtype=args.quantized_dtype,
                                                        logger=logger)
-        sym_name = '%s-symbol.json' % ('./model/qssd_vgg16_reduced_300')
+        sym_name = '%s-symbol.json' % './model/qssd_vgg16_reduced_300'
         param_name = '%s-%04d.params' % ('./model/qssd_vgg16_reduced_300', epoch)
         save_symbol(sym_name, qsym, logger)
     else:
@@ -154,14 +148,14 @@ if __name__ == '__main__':
                                   path_imglist="", **cfg.valid)
 
         qsym, qarg_params, aux_params = quantize_model(sym=sym, arg_params=arg_params, aux_params=aux_params,
-                                                        ctx=ctx, excluded_sym_names=excluded_sym_names,
-                                                        calib_mode=calib_mode, calib_data=eval_iter,
-                                                        num_calib_examples=num_calib_batches * batch_size,
-                                                        calib_layer=calib_layer, quantized_dtype=args.quantized_dtype,
-                                                        label_names=(label_name,),
-                                                        calib_quantize_op = True,
-                                                        logger=logger)
-        sym_name = '%s-symbol.json' % ('./model/cqssd_vgg16_reduced_300')
+                                                       ctx=ctx, excluded_sym_names=excluded_sym_names,
+                                                       calib_mode=calib_mode, calib_data=eval_iter,
+                                                       num_calib_examples=num_calib_batches * batch_size,
+                                                       calib_layer=calib_layer, quantized_dtype=args.quantized_dtype,
+                                                       label_names=(label_name,),
+                                                       calib_quantize_op=True,
+                                                       logger=logger)
+        sym_name = '%s-symbol.json' % './model/cqssd_vgg16_reduced_300'
         param_name = '%s-%04d.params' % ('./model/cqssd_vgg16_reduced_300', epoch)
     qsym = qsym.get_backend_symbol('MKLDNN_POST_QUANTIZE')
     save_symbol(sym_name, qsym, logger)

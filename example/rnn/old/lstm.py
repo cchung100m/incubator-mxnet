@@ -17,12 +17,10 @@
 
 # pylint:skip-file
 import sys
-sys.path.insert(0, "../../python")
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 from collections import namedtuple
-import time
-import math
+sys.path.insert(0, "../../python")
 LSTMState = namedtuple("LSTMState", ["c", "h"])
 LSTMParam = namedtuple("LSTMParam", ["i2h_weight", "i2h_bias",
                                      "h2h_weight", "h2h_bias"])

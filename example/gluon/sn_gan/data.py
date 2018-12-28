@@ -15,9 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Get CIFAR10 dataset and data preparation
+
 # This example is inspired by https://github.com/jason71995/Keras-GAN-Library,
 # https://github.com/kazizzad/DCGAN-Gluon-MxNet/blob/master/MxnetDCGAN.ipynb
 # https://github.com/apache/incubator-mxnet/blob/master/example/gluon/dc_gan/dcgan.py
+"""
 
 import numpy as np
 
@@ -26,6 +30,7 @@ from mxnet import gluon
 from mxnet.gluon.data.vision import CIFAR10
 
 IMAGE_SIZE = 64
+
 
 def transformer(data, label):
     """ data preparation """

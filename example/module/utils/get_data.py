@@ -14,12 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Downlaod mnist/cifar10 dataset
+"""
 import os
 import mxnet as mx
-import zipfile
+
 
 def get_mnist(data_dir):
+    """
+    Downlaod mnist dataset
+    """
     if not os.path.isdir(data_dir):
         os.system("mkdir " + data_dir)
     os.chdir(data_dir)
@@ -27,7 +32,8 @@ def get_mnist(data_dir):
        (not os.path.exists('train-labels-idx1-ubyte')) or \
        (not os.path.exists('t10k-images-idx3-ubyte')) or \
        (not os.path.exists('t10k-labels-idx1-ubyte')):
-        import urllib, zipfile
+        import urllib
+        import zipfile
         zippath = os.path.join(os.getcwd(), "mnist.zip")
         mx.test_utils.download("http://data.mxnet.io/mxnet/data/mnist.zip", zippath)
         zf = zipfile.ZipFile(zippath, "r")
@@ -36,14 +42,20 @@ def get_mnist(data_dir):
         os.remove(zippath)
     os.chdir("..")
 
+
 def get_cifar10(data_dir):
+    """
+    Download cifar10 dataset
+    """
     if not os.path.isdir(data_dir):
         os.system("mkdir " + data_dir)
     cwd = os.path.abspath(os.getcwd())
     os.chdir(data_dir)
     if (not os.path.exists('train.rec')) or \
-       (not os.path.exists('test.rec')) :
-        import urllib, zipfile, glob
+       (not os.path.exists('test.rec')):
+        import urllib
+        import zipfile
+        import glob
         dirname = os.getcwd()
         zippath = os.path.join(dirname, "cifar10.zip")
         mx.test_utils.download("http://data.mxnet.io/mxnet/data/cifar10.zip", zippath)
@@ -57,7 +69,11 @@ def get_cifar10(data_dir):
         os.rmdir(os.path.join(dirname, "cifar"))
     os.chdir(cwd)
 
+
 def get_cifar10_iterator(args, kv):
+    """
+    Generate data iterator for accessing cifar10 dataset
+    """
     data_shape = (3, 28, 28)
     data_dir = args.data_dir
     if os.name == "nt":
@@ -65,24 +81,22 @@ def get_cifar10_iterator(args, kv):
     if '://' not in args.data_dir:
         get_cifar10(data_dir)
 
-    train = mx.io.ImageRecordIter(
-        path_imgrec = os.path.join(data_dir, "train.rec"),
-        mean_img    = os.path.join(data_dir, "mean.bin"),
-        data_shape  = data_shape,
-        batch_size  = args.batch_size,
-        rand_crop   = True,
-        rand_mirror = True,
-        num_parts   = kv.num_workers,
-        part_index  = kv.rank)
+    train = mx.io.ImageRecordIter(path_imgrec=os.path.join(data_dir, "train.rec"),
+                                  mean_img=os.path.join(data_dir, "mean.bin"),
+                                  data_shape=data_shape,
+                                  batch_size=args.batch_size,
+                                  rand_crop=True,
+                                  rand_mirror=True,
+                                  num_parts=kv.num_workers,
+                                  part_index=kv.rank)
 
-    val = mx.io.ImageRecordIter(
-        path_imgrec = os.path.join(data_dir, "test.rec"),
-        mean_img    = os.path.join(data_dir, "mean.bin"),
-        rand_crop   = False,
-        rand_mirror = False,
-        data_shape  = data_shape,
-        batch_size  = args.batch_size,
-        num_parts   = kv.num_workers,
-        part_index  = kv.rank)
+    val = mx.io.ImageRecordIter(path_imgrec=os.path.join(data_dir, "test.rec"),
+                                mean_img=os.path.join(data_dir, "mean.bin"),
+                                rand_crop=False,
+                                rand_mirror=False,
+                                data_shape=data_shape,
+                                batch_size=args.batch_size,
+                                num_parts=kv.num_workers,
+                                part_index=kv.rank)
 
-    return (train, val)
+    return train, val

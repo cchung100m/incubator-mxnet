@@ -14,40 +14,42 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+This script provides an example of taking FP32 models and calibration dataset to generate calibrated quantized models.
+"""
 import argparse
 import os
 import logging
 from common import modelzoo
 import mxnet as mx
-from mxnet.contrib.quantization import *
+from mxnet.contrib.quantization import quantize_model, cpu
 
 
-def download_calib_dataset(dataset_url, calib_dataset, logger=None):
-    if logger is not None:
-        logger.info('Downloading calibration dataset from %s to %s' % (dataset_url, calib_dataset))
+def download_calib_dataset(dataset_url, calib_dataset, logger_operator=None):
+    if logger_operator is not None:
+        logger_operator.info('Downloading calibration dataset from %s to %s' % (dataset_url, calib_dataset))
     mx.test_utils.download(dataset_url, calib_dataset)
 
 
-def download_model(model_name, logger=None):
+def download_model(model_name, logger_operator=None):
     dir_path = os.path.dirname(os.path.realpath(__file__))
     model_path = os.path.join(dir_path, 'model')
-    if logger is not None:
-        logger.info('Downloading model %s... into path %s' % (model_name, model_path))
+    if logger_operator is not None:
+        logger_operator.info('Downloading model %s... into path %s' % (model_name, model_path))
     return modelzoo.download_model(args.model, os.path.join(dir_path, 'model'))
 
 
-def save_symbol(fname, sym, logger=None):
-    if logger is not None:
-        logger.info('Saving symbol into file at %s' % fname)
-    sym.save(fname)
+def save_symbol(fname, symbol, logger_operator=None):
+    if logger_operator is not None:
+        logger_operator.info('Saving symbol into file at %s' % fname)
+    symbol.save(fname)
 
 
-def save_params(fname, arg_params, aux_params, logger=None):
-    if logger is not None:
-        logger.info('Saving params into file at %s' % fname)
-    save_dict = {('arg:%s' % k): v.as_in_context(cpu()) for k, v in arg_params.items()}
-    save_dict.update({('aux:%s' % k): v.as_in_context(cpu()) for k, v in aux_params.items()})
+def save_params(fname, args_params, auxs_params, logger_operator=None):
+    if logger_operator is not None:
+        logger_operator.info('Saving params into file at %s' % fname)
+    save_dict = {('arg:%s' % k): v.as_in_context(cpu()) for k, v in args_params.items()}
+    save_dict.update({('aux:%s' % k): v.as_in_context(cpu()) for k, v in auxs_params.items()})
     mx.nd.save(fname, save_dict)
 
 
@@ -73,11 +75,13 @@ if __name__ == '__main__':
                         help='shuffle the calibration dataset')
     parser.add_argument('--shuffle-chunk-seed', type=int, default=3982304,
                         help='shuffling chunk seed, see'
-                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight=imager#mxnet.io.ImageRecordIter'
+                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?'
+                             'highlight=imager#mxnet.io.ImageRecordIter'
                              ' for more details')
     parser.add_argument('--shuffle-seed', type=int, default=48564309,
                         help='shuffling seed, see'
-                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight=imager#mxnet.io.ImageRecordIter'
+                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?'
+                             'highlight=imager#mxnet.io.ImageRecordIter'
                              ' for more details')
     parser.add_argument('--calib-mode', type=str, default='entropy',
                         help='calibration mode used for generating calibration table for the quantized symbol; supports'
@@ -108,27 +112,27 @@ if __name__ == '__main__':
     logger = logging.getLogger('logger')
     logger.setLevel(logging.INFO)
 
-    logger.info('shuffle_dataset=%s' % args.shuffle_dataset)
+    logger.info('shuffle_dataset=%s', args.shuffle_dataset)
 
     calib_mode = args.calib_mode
-    logger.info('calibration mode set to %s' % calib_mode)
+    logger.info('calibration mode set to %s', calib_mode)
 
     # download calibration dataset
     if calib_mode != 'none':
         download_calib_dataset('http://data.mxnet.io/data/val_256_q90.rec', args.calib_dataset)
 
     # download model
-    prefix, epoch = download_model(model_name=args.model, logger=logger)
+    prefix, epoch = download_model(model_name=args.model, logger_operator=logger)
     sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
 
     # get batch size
     batch_size = args.batch_size
-    logger.info('batch size = %d for calibration' % batch_size)
+    logger.info('batch size = %d for calibration', batch_size)
 
     # get number of batches for calibration
     num_calib_batches = args.num_calib_batches
     if calib_mode != 'none':
-        logger.info('number of batches = %d for calibration' % num_calib_batches)
+        logger.info('number of batches = %d for calibration', num_calib_batches)
 
     # get number of threads for decoding the dataset
     data_nthreads = args.data_nthreads
@@ -164,17 +168,17 @@ if __name__ == '__main__':
         raise ValueError('model %s is not supported in this script' % args.model)
 
     label_name = args.label_name
-    logger.info('label_name = %s' % label_name)
+    logger.info('label_name = %s', label_name)
 
     data_shape = tuple([int(i) for i in image_shape.split(',')])
-    logger.info('Input data shape = %s' % str(data_shape))
+    logger.info('Input data shape = %s', str(data_shape))
 
-    logger.info('rgb_mean = %s' % rgb_mean)
+    logger.info('rgb_mean = %s', rgb_mean)
     rgb_mean = [float(i) for i in rgb_mean.split(',')]
     mean_args = {'mean_r': rgb_mean[0], 'mean_g': rgb_mean[1], 'mean_b': rgb_mean[2]}
 
     if calib_mode == 'none':
-        logger.info('Quantizing FP32 model %s' % args.model)
+        logger.info('Quantizing FP32 model %s', args.model)
         qsym, qarg_params, aux_params = quantize_model(sym=sym, arg_params=arg_params, aux_params=aux_params,
                                                        ctx=ctx, excluded_sym_names=excluded_sym_names,
                                                        calib_mode=calib_mode, quantized_dtype=args.quantized_dtype,

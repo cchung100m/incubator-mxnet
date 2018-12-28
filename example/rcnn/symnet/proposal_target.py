@@ -18,9 +18,8 @@
 """
 Proposal Target Operator selects foreground and background roi and assigns label, bbox_transform to them.
 """
-
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 
 from symdata.bbox import bbox_overlaps, bbox_transform
 
@@ -86,6 +85,9 @@ def sample_rois(rois, gt_boxes, num_classes, rois_per_image, fg_rois_per_image, 
 
 
 class ProposalTargetOperator(mx.operator.CustomOp):
+    """
+    Generate Target operator
+    """
     def __init__(self, num_classes, batch_images, batch_rois, fg_fraction, fg_overlap, box_stds):
         super(ProposalTargetOperator, self).__init__()
         self._num_classes = num_classes
@@ -97,6 +99,9 @@ class ProposalTargetOperator(mx.operator.CustomOp):
         self._box_stds = box_stds
 
     def forward(self, is_train, req, in_data, out_data, aux):
+        """
+        Calculate the ROIs and weights of bounding box while forwarding
+        """
         assert self._batch_images == in_data[1].shape[0], 'check batch size of gt_boxes'
 
         all_rois = in_data[0].asnumpy()
@@ -117,7 +122,8 @@ class ProposalTargetOperator(mx.operator.CustomOp):
 
             b_rois, b_labels, b_bbox_targets, b_bbox_weights = \
                 sample_rois(b_rois, b_gt_boxes, num_classes=self._num_classes, rois_per_image=self._rois_per_image,
-                            fg_rois_per_image=self._fg_rois_per_image, fg_overlap=self._fg_overlap, box_stds=self._box_stds)
+                            fg_rois_per_image=self._fg_rois_per_image, fg_overlap=self._fg_overlap,
+                            box_stds=self._box_stds)
 
             rois = np.vstack((rois, b_rois))
             labels = np.hstack((labels, b_labels))
@@ -136,6 +142,9 @@ class ProposalTargetOperator(mx.operator.CustomOp):
 
 @mx.operator.register('proposal_target')
 class ProposalTargetProp(mx.operator.CustomOpProp):
+    """
+    Generate helper functions for handling output
+    """
     def __init__(self, num_classes='21', batch_images='1', batch_rois='128', fg_fraction='0.25',
                  fg_overlap='0.5', box_stds='(0.1, 0.1, 0.2, 0.2)'):
         super(ProposalTargetProp, self).__init__(need_top_grad=False)
@@ -153,6 +162,9 @@ class ProposalTargetProp(mx.operator.CustomOpProp):
         return ['rois_output', 'label', 'bbox_target', 'bbox_weight']
 
     def infer_shape(self, in_shape):
+        """
+        Generate the output shape
+        """
         assert self._batch_rois % self._batch_images == 0, \
             'BATCHIMAGES {} must devide BATCH_ROIS {}'.format(self._batch_images, self._batch_rois)
 

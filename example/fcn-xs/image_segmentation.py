@@ -19,7 +19,7 @@
 This module encapsulates running image segmentation model for inference.
 
 Example usage:
-    $ python image_segmentaion.py --input <your JPG image path>
+    $ python image_segmentation.py --input <your JPG image path>
 """
 
 import argparse
@@ -27,6 +27,7 @@ import os
 import numpy as np
 import mxnet as mx
 from PIL import Image
+
 
 def make_file_extension_assertion(extension):
     """Function factory for file extension argparse assertion
@@ -43,6 +44,7 @@ def make_file_extension_assertion(extension):
             raise argparse.ArgumentTypeError('File must have ' + extension + ' extension')
         return file_path
     return file_extension_assertion
+
 
 def get_palette(num_colors=256):
     """generates the colormap for visualizing the segmentation mask
@@ -68,6 +70,7 @@ def get_palette(num_colors=256):
             lab >>= 3
     return pallete
 
+
 def get_data(img_path):
     """get the (1, 3, h, w) np.array data for the supplied image
                 Args:
@@ -86,6 +89,7 @@ def get_data(img_path):
     img = np.swapaxes(img, 1, 2)
     img = np.expand_dims(img, axis=0)
     return img
+
 
 def main():
     """Module main execution"""
@@ -108,6 +112,7 @@ def main():
     out_img = Image.fromarray(out_img)
     out_img.putpalette(get_palette())
     out_img.save(args.output)
+
 
 if __name__ == "__main__":
     # Handle command line arguments

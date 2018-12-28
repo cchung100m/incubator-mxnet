@@ -14,11 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import numpy as np
-import mxnet as mx
+"""
+Generate the Sherlock Holmes language model by using LSTM
+"""
 import argparse
 import os
+import mxnet as mx
 
 parser = argparse.ArgumentParser(description="Train RNN on Sherlock Holmes",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -48,14 +49,15 @@ parser.add_argument('--batch-size', type=int, default=32,
 parser.add_argument('--disp-batches', type=int, default=50,
                     help='show progress for every n batches')
 
-def tokenize_text(fname, vocab=None, invalid_label=-1, start_label=0):
+
+def tokenize_text(fname, vocab_list=None, invalid_label_list=-1, start_label_list=0):
     if not os.path.isfile(fname):
         raise IOError("Please use get_sherlockholmes_data.sh to download requied file (data/sherlockholmes.train.txt)")
     lines = open(fname).readlines()
     lines = [filter(None, i.split(' ')) for i in lines]
-    sentences, vocab = mx.rnn.encode_sentences(lines, vocab=vocab, invalid_label=invalid_label,
-                                               start_label=start_label)
-    return sentences, vocab
+    sentences, vocab_list = mx.rnn.encode_sentences(lines, vocab=vocab_list, invalid_label=invalid_label_list,
+                                                    start_label=start_label_list)
+    return sentences, vocab_list
 
 
 if __name__ == '__main__':
@@ -65,31 +67,33 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #buckets = []
+    # buckets = []
     buckets = [10, 20, 30, 40, 50, 60]
 
     start_label = 1
     invalid_label = 0
 
-    train_sent, vocab = tokenize_text("./data/sherlockholmes.train.txt", start_label=start_label,
-                                      invalid_label=invalid_label)
-    val_sent, _ = tokenize_text("./data/sherlockholmes.test.txt", vocab=vocab, start_label=start_label,
-                                invalid_label=invalid_label)
+    train_sent, vocab = tokenize_text("./data/sherlockholmes.train.txt", start_label_list=start_label,
+                                      invalid_label_list=invalid_label)
+    val_sent, _ = tokenize_text("./data/sherlockholmes.test.txt", vocab_list=vocab, start_label_list=start_label,
+                                invalid_label_list=invalid_label)
 
-    data_train  = mx.rnn.BucketSentenceIter(train_sent, args.batch_size, buckets=buckets,
-                                            invalid_label=invalid_label)
-    data_val    = mx.rnn.BucketSentenceIter(val_sent, args.batch_size, buckets=buckets,
-                                            invalid_label=invalid_label)
+    data_train = mx.rnn.BucketSentenceIter(train_sent, args.batch_size, buckets=buckets,
+                                           invalid_label=invalid_label)
+    data_val = mx.rnn.BucketSentenceIter(val_sent, args.batch_size, buckets=buckets,
+                                         invalid_label=invalid_label)
 
     stack = mx.rnn.SequentialRNNCell()
     for i in range(args.num_layers):
-        stack.add(mx.rnn.LSTMCell(num_hidden=args.num_hidden, prefix='lstm_l%d_'%i))
+        stack.add(mx.rnn.LSTMCell(num_hidden=args.num_hidden, prefix='lstm_l%d_' % i))
 
     def sym_gen(seq_len):
+        """
+        Generate output of LSTM
+        """
         data = mx.sym.Variable('data')
         label = mx.sym.Variable('softmax_label')
-        embed = mx.sym.Embedding(data=data, input_dim=len(vocab),
-                                 output_dim=args.num_embed, name='embed')
+        embed = mx.sym.Embedding(data=data, input_dim=len(vocab), output_dim=args.num_embed, name='embed')
 
         stack.reset()
         outputs = stack.unroll(seq_len, inputs=embed, merge_outputs=True)[0]
@@ -107,20 +111,18 @@ if __name__ == '__main__':
     else:
         contexts = mx.cpu(0)
 
-    model = mx.mod.BucketingModule(
-        sym_gen             = sym_gen,
-        default_bucket_key  = data_train.default_bucket_key,
-        context             = contexts)
+    model = mx.mod.BucketingModule(sym_gen=sym_gen,
+                                   default_bucket_key=data_train.default_bucket_key,
+                                   context=contexts)
 
-    model.fit(
-        train_data          = data_train,
-        eval_data           = data_val,
-        eval_metric         = mx.metric.Perplexity(invalid_label),
-        kvstore             = args.kv_store,
-        optimizer           = args.optimizer,
-        optimizer_params    = { 'learning_rate': args.lr,
+    model.fit(train_data=data_train,
+              eval_data=data_val,
+              eval_metric=mx.metric.Perplexity(invalid_label),
+              kvstore=args.kv_store,
+              optimizer=args.optimizer,
+              optimizer_params={'learning_rate': args.lr,
                                 'momentum': args.mom,
-                                'wd': args.wd },
-        initializer         = mx.init.Xavier(factor_type="in", magnitude=2.34),
-        num_epoch           = args.num_epochs,
-        batch_end_callback  = mx.callback.Speedometer(args.batch_size, args.disp_batches, auto_reset=False))
+                                'wd': args.wd},
+              initializer=mx.init.Xavier(factor_type="in", magnitude=2.34),
+              num_epoch=args.num_epochs,
+              batch_end_callback=mx.callback.Speedometer(args.batch_size, args.disp_batches, auto_reset=False))

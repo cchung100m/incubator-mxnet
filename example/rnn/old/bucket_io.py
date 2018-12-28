@@ -19,9 +19,10 @@
 # pylint: disable=superfluous-parens, no-member, invalid-name
 from __future__ import print_function
 import sys
-sys.path.insert(0, "../../python")
+
 import numpy as np
 import mxnet as mx
+sys.path.insert(0, "../../python")
 
 # The interface of a data iter that works for bucketing
 #
@@ -33,11 +34,13 @@ import mxnet as mx
 #   - provide_label: same as DataIter, but specific to this batch
 #   - bucket_key: the key for the bucket that should be used for this batch
 
+
 def default_read_content(path):
     with open(path) as ins:
         content = ins.read()
         content = content.replace('\n', ' <eos> ').replace('. ', ' <eos> ')
         return content
+
 
 def default_build_vocab(path):
     content = default_read_content(path)
@@ -53,10 +56,12 @@ def default_build_vocab(path):
             idx += 1
     return the_vocab
 
+
 def default_text2id(sentence, the_vocab):
     words = sentence.split(' ')
     words = [the_vocab[w] for w in words if len(w) > 0]
     return words
+
 
 def default_gen_buckets(sentences, batch_size, the_vocab):
     len_dict = {}
@@ -85,11 +90,13 @@ def default_gen_buckets(sentences, batch_size, the_vocab):
         buckets.append(max_len)
     return buckets
 
+
 class ModelParallelBatch(object):
     """Batch used for model parallelism"""
     def __init__(self, data, bucket_key):
         self.data = np.array(data)
         self.bucket_key = bucket_key
+
 
 class SimpleBatch(object):
     def __init__(self, data_names, data, label_names, label, bucket_key):
@@ -110,6 +117,7 @@ class SimpleBatch(object):
     def provide_label(self):
         return [(n, x.shape) for n, x in zip(self.label_names, self.label)]
 
+
 class DummyIter(mx.io.DataIter):
     "A dummy iterator that always return the same batch, used for speed testing"
     def __init__(self, real_iter):
@@ -124,10 +132,11 @@ class DummyIter(mx.io.DataIter):
             break
 
     def __iter__(self):
-        return self
+        return self.__iter__()
 
     def next(self):
         return self.the_batch
+
 
 class BucketSentenceIter(mx.io.DataIter):
     def __init__(self, path, vocab, buckets, batch_size,
@@ -269,7 +278,6 @@ class BucketSentenceIter(mx.io.DataIter):
                 data_batch = SimpleBatch(data_names, data_all, label_names, label_all,
                                          self.buckets[i_bucket])
                 yield data_batch
-
 
     def reset(self):
         self.bucket_curr_idx = [0 for x in self.data]

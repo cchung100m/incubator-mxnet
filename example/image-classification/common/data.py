@@ -15,12 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import mxnet as mx
-import random
-from mxnet.io import DataBatch, DataIter
+"""
+Helper functions to manipulate dataset
+"""
+
 import numpy as np
+import mxnet as mx
+from mxnet.io import DataBatch, DataIter
+
 
 def add_data_args(parser):
+    """
+    Add arguments to data
+    """
     data = parser.add_argument_group('Data', 'the input images')
     data.add_argument('--data-train', type=str, help='the training data')
     data.add_argument('--data-train-idx', type=str, default='', help='the index of training data')
@@ -44,7 +51,13 @@ def add_data_args(parser):
                       help='if 1, then feed the network with synthetic data')
     return data
 
+
 def add_data_aug_args(parser):
+    """
+    Add arguments to aug
+    :param parser:
+    :return:
+    """
     aug = parser.add_argument_group(
         'Image augmentations', 'implemented in src/io/image_aug_default.cc')
     aug.add_argument('--random-crop', type=int, default=0,
@@ -95,7 +108,11 @@ def add_data_aug_args(parser):
                      help='whether to use random resized crop')
     return aug
 
+
 class SyntheticDataIter(DataIter):
+    """
+    Generate the Iter to data
+    """
     def __init__(self, num_classes, data_shape, max_iter, dtype):
         self.batch_size = data_shape[0]
         self.cur_iter = 0
@@ -105,15 +122,22 @@ class SyntheticDataIter(DataIter):
         data = np.random.uniform(-1, 1, data_shape)
         self.data = mx.nd.array(data, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
         self.label = mx.nd.array(label, dtype=self.dtype, ctx=mx.Context('cpu_pinned', 0))
+
     def __iter__(self):
         return self
+
     @property
     def provide_data(self):
         return [mx.io.DataDesc('data', self.data.shape, self.dtype)]
+
     @property
     def provide_label(self):
         return [mx.io.DataDesc('softmax_label', (self.batch_size,), self.dtype)]
+
     def next(self):
+        """
+        Generate next of the Iter to data
+        """
         self.cur_iter += 1
         if self.cur_iter <= self.max_iter:
             return DataBatch(data=(self.data,),
@@ -124,18 +148,23 @@ class SyntheticDataIter(DataIter):
                              provide_label=self.provide_label)
         else:
             raise StopIteration
+
     def __next__(self):
         return self.next()
+
     def reset(self):
         self.cur_iter = 0
 
+
 def get_rec_iter(args, kv=None):
+    """
+    Generate Iter of the train dataset
+    """
     image_shape = tuple([int(l) for l in args.image_shape.split(',')])
     if 'benchmark' in args and args.benchmark:
         data_shape = (args.batch_size,) + image_shape
-        train = SyntheticDataIter(args.num_classes, data_shape,
-                args.num_examples / args.batch_size, np.float32)
-        return (train, None)
+        train = SyntheticDataIter(args.num_classes, data_shape, args.num_examples / args.batch_size, np.float32)
+        return train, None
     if kv:
         (rank, nworker) = (kv.rank, kv.num_workers)
     else:
@@ -143,64 +172,66 @@ def get_rec_iter(args, kv=None):
     rgb_mean = [float(i) for i in args.rgb_mean.split(',')]
     rgb_std = [float(i) for i in args.rgb_std.split(',')]
     train = mx.io.ImageRecordIter(
-        path_imgrec         = args.data_train,
-        path_imgidx         = args.data_train_idx,
-        label_width         = 1,
-        mean_r              = rgb_mean[0],
-        mean_g              = rgb_mean[1],
-        mean_b              = rgb_mean[2],
-        std_r               = rgb_std[0],
-        std_g               = rgb_std[1],
-        std_b               = rgb_std[2],
-        data_name           = 'data',
-        label_name          = 'softmax_label',
-        data_shape          = image_shape,
-        batch_size          = args.batch_size,
-        rand_crop           = args.random_crop,
-        max_random_scale    = args.max_random_scale,
-        pad                 = args.pad_size,
-        fill_value          = args.fill_value,
-        random_resized_crop = args.random_resized_crop,
-        min_random_scale    = args.min_random_scale,
-        max_aspect_ratio    = args.max_random_aspect_ratio,
-        min_aspect_ratio    = args.min_random_aspect_ratio,
-        max_random_area     = args.max_random_area,
-        min_random_area     = args.min_random_area,
-        min_crop_size       = args.min_crop_size,
-        max_crop_size       = args.max_crop_size,
-        brightness          = args.brightness,
-        contrast            = args.contrast,
-        saturation          = args.saturation,
-        pca_noise           = args.pca_noise,
-        random_h            = args.max_random_h,
-        random_s            = args.max_random_s,
-        random_l            = args.max_random_l,
-        max_rotate_angle    = args.max_random_rotate_angle,
-        max_shear_ratio     = args.max_random_shear_ratio,
-        rand_mirror         = args.random_mirror,
-        preprocess_threads  = args.data_nthreads,
-        shuffle             = True,
-        num_parts           = nworker,
-        part_index          = rank)
+        path_imgrec=args.data_train,
+        path_imgidx=args.data_train_idx,
+        label_width=1,
+        mean_r=rgb_mean[0],
+        mean_g=rgb_mean[1],
+        mean_b=rgb_mean[2],
+        std_r=rgb_std[0],
+        std_g=rgb_std[1],
+        std_b=rgb_std[2],
+        data_name='data',
+        label_name='softmax_label',
+        data_shape=image_shape,
+        batch_size=args.batch_size,
+        rand_crop=args.random_crop,
+        max_random_scale=args.max_random_scale,
+        pad=args.pad_size,
+        fill_value=args.fill_value,
+        random_resized_crop=args.random_resized_crop,
+        min_random_scale=args.min_random_scale,
+        max_aspect_ratio=args.max_random_aspect_ratio,
+        min_aspect_ratio=args.min_random_aspect_ratio,
+        max_random_area=args.max_random_area,
+        min_random_area=args.min_random_area,
+        min_crop_size=args.min_crop_size,
+        max_crop_size=args.max_crop_size,
+        brightness=args.brightness,
+        contrast=args.contrast,
+        saturation=args.saturation,
+        pca_noise=args.pca_noise,
+        random_h=args.max_random_h,
+        random_s=args.max_random_s,
+        random_l=args.max_random_l,
+        max_rotate_angle=args.max_random_rotate_angle,
+        max_shear_ratio=args.max_random_shear_ratio,
+        rand_mirror=args.random_mirror,
+        preprocess_threads=args.data_nthreads,
+        shuffle=True,
+        num_parts=nworker,
+        part_index=rank)
+
     if args.data_val is None:
-        return (train, None)
+        return train, None
+
     val = mx.io.ImageRecordIter(
-        path_imgrec         = args.data_val,
-        path_imgidx         = args.data_val_idx,
-        label_width         = 1,
-        mean_r              = rgb_mean[0],
-        mean_g              = rgb_mean[1],
-        mean_b              = rgb_mean[2],
-        std_r               = rgb_std[0],
-        std_g               = rgb_std[1],
-        std_b               = rgb_std[2],
-        data_name           = 'data',
-        label_name          = 'softmax_label',
-        batch_size          = args.batch_size,
-        data_shape          = image_shape,
-        preprocess_threads  = args.data_nthreads,
-        rand_crop           = False,
-        rand_mirror         = False,
-        num_parts           = nworker,
-        part_index          = rank)
-    return (train, val)
+        path_imgrec=args.data_val,
+        path_imgidx=args.data_val_idx,
+        label_width=1,
+        mean_r=rgb_mean[0],
+        mean_g=rgb_mean[1],
+        mean_b=rgb_mean[2],
+        std_r=rgb_std[0],
+        std_g=rgb_std[1],
+        std_b=rgb_std[2],
+        data_name='data',
+        label_name='softmax_label',
+        batch_size=args.batch_size,
+        data_shape=image_shape,
+        preprocess_threads=args.data_nthreads,
+        rand_crop=False,
+        rand_mirror=False,
+        num_parts=nworker,
+        part_index=rank)
+    return train, val

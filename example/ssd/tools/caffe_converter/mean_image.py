@@ -14,21 +14,25 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-import numpy as np
+"""
+Generate the mean of image
+"""
 import argparse
+import numpy as np
+import mxnet as mx
 
 caffe_flag = True
 try:
     import caffe
-    from caffe.proto import caffe_pb2
 except ImportError:
     caffe_flag = False
     import caffe_parse.caffe_pb2
 
 
 def protoBlobFileToND(proto_file):
+    """
+    Convert blob file to nd.array
+    """
     data = ''
     file = open(proto_file, "r")
     if not file:

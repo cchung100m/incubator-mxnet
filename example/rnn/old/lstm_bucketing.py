@@ -18,12 +18,13 @@
 # pylint: disable=C0111,too-many-arguments,too-many-instance-attributes,too-many-locals,redefined-outer-name,fixme
 # pylint: disable=superfluous-parens, no-member, invalid-name
 import sys
-sys.path.insert(0, "../../python")
 import numpy as np
 import mxnet as mx
-
 from lstm import lstm_unroll
 from bucket_io import BucketSentenceIter, default_build_vocab, DummyIter
+
+sys.path.insert(0, "../../python")
+
 
 def Perplexity(label, pred):
     label = label.T.reshape((-1,))
@@ -31,6 +32,7 @@ def Perplexity(label, pred):
     for i in range(pred.shape[0]):
         loss += -np.log(max(1e-10, pred[i][int(label[i])]))
     return np.exp(loss / label.size)
+
 
 if __name__ == '__main__':
     N = 8
@@ -62,10 +64,8 @@ if __name__ == '__main__':
     init_h = [('l%d_init_h'%l, (batch_size, num_hidden)) for l in range(num_lstm_layer)]
     init_states = init_c + init_h
 
-    data_train = BucketSentenceIter("./data/sherlockholmes.train.txt", vocab,
-                                    buckets, batch_size, init_states)
-    data_val = BucketSentenceIter("./data/sherlockholmes.valid.txt", vocab,
-                                  buckets, batch_size, init_states)
+    data_train = BucketSentenceIter("./data/sherlockholmes.train.txt", vocab, buckets, batch_size, init_states)
+    data_val = BucketSentenceIter("./data/sherlockholmes.valid.txt", vocab, buckets, batch_size, init_states)
 
     if dummy_data:
         data_train = DummyIter(data_train)
@@ -90,6 +90,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG, format=head)
 
     model.fit(X=data_train, eval_data=data_val, kvstore='device',
-              eval_metric = mx.metric.np(Perplexity),
+              eval_metric=mx.metric.np(Perplexity),
               batch_end_callback=mx.callback.Speedometer(batch_size, 50),)
-

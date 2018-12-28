@@ -15,6 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Download images for the implementation of Neural Style Transfer and MSG-Net.
+"""
+
 import os
+
 if not os.path.exists('images'):
-        os.system('svn checkout https://github.com/dmlc/web-data/trunk/mxnet/example/style_transfer/images')
+    os.system('svn checkout https://github.com/dmlc/web-data/trunk/mxnet/example/style_transfer/images')

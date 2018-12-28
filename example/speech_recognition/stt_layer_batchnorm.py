@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate batch normalization layers to build Speech-To-Text (STT) models on DeepSpeech2 of Baidu
+"""
 import mxnet as mx
 
 
@@ -27,6 +29,9 @@ def batchnorm(net,
               use_global_stats=False,
               output_mean_var=False,
               name=None):
+    """
+    Determine batch normalization layers with/without gamma and beta
+    """
     if gamma is not None and beta is not None:
         net = mx.sym.BatchNorm(data=net,
                                gamma=gamma,

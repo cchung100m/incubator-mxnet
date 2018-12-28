@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os, sys
+"""
+Load mxnet module
+"""
+import os
+import sys
 try:
     import mxnet as mx
 except ImportError:

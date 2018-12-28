@@ -18,9 +18,11 @@
 # pylint: disable=C0111,too-many-arguments,too-many-instance-attributes,too-many-locals,redefined-outer-name,fixme
 # pylint: disable=superfluous-parens, no-member, invalid-name
 import sys
-sys.path.insert(0, "../../python")
-import mxnet as mx
 from collections import namedtuple
+import mxnet as mx
+
+sys.path.insert(0, "../../python")
+
 GRUState = namedtuple("GRUState", ["h"])
 GRUParam = namedtuple("GRUParam", ["gates_i2h_weight", "gates_i2h_bias",
                                    "gates_h2h_weight", "gates_h2h_bias",
@@ -30,6 +32,7 @@ GRUModel = namedtuple("GRUModel", ["rnn_exec", "symbol",
                                    "init_states", "last_states",
                                    "seq_data", "seq_labels", "seq_outputs",
                                    "param_blocks"])
+
 
 def gru(num_hidden, indata, prev_state, param, seqidx, layeridx, dropout=0.):
     """
@@ -71,6 +74,7 @@ def gru(num_hidden, indata, prev_state, param, seqidx, layeridx, dropout=0.):
     h_trans_active = mx.sym.Activation(h_trans, act_type="tanh")
     next_h = prev_state.h + update_gate * (h_trans_active - prev_state.h)
     return GRUState(h=next_h)
+
 
 def gru_unroll(num_gru_layer, seq_len, input_size,
                num_hidden, num_embed, num_label, dropout=0.):
@@ -126,4 +130,3 @@ def gru_unroll(num_gru_layer, seq_len, input_size,
     label = mx.sym.transpose(data=label)
     label = mx.sym.Reshape(data=label, target_shape=(0,))
     return mx.sym.SoftmaxOutput(data=pred, label=label, name='softmax')
-

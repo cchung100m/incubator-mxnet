@@ -15,21 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Select model from mxnet.gluon.model_zoo or train own model for image classification
+"""
+
 from __future__ import division
 
-import argparse, time, os
+import os
+import argparse
+import time
 import logging
-
+import numpy as np
 import mxnet as mx
 from mxnet import gluon
 from mxnet import profiler
-from mxnet.gluon import nn
 from mxnet.gluon.model_zoo import vision as models
 from mxnet import autograd as ag
 from mxnet.test_utils import get_mnist_iterator
 from mxnet.metric import Accuracy, TopKAccuracy, CompositeEvalMetric
-import numpy as np
-
 from data import (get_cifar10_iterator, get_imagenet_iterator,
                   get_caltech101_iterator, dummy_iterator)
 
@@ -50,7 +53,7 @@ parser = argparse.ArgumentParser(description='Train a model for image classifica
 parser.add_argument('--dataset', type=str, default='cifar10',
                     help='dataset to use. options are mnist, cifar10, caltech101, imagenet and dummy.')
 parser.add_argument('--data-dir', type=str, default='',
-                  help='training directory of imagenet images, contains train/val subdirs.')
+                    help='training directory of imagenet images, contains train/val subdirs.')
 parser.add_argument('--num-worker', '-j', dest='num_workers', default=4, type=int,
                     help='number of workers for dataloader')
 parser.add_argument('--batch-size', type=int, default=32,
@@ -102,7 +105,7 @@ parser.add_argument('--builtin-profiler', type=int, default=0, help='Enable buil
 opt = parser.parse_args()
 
 # global variables
-logger.info('Starting new image-classification task:, %s',opt)
+logger.info('Starting new image-classification task:, %s', opt)
 mx.random.seed(opt.seed)
 model_name = opt.model
 dataset_classes = {'mnist': 10, 'cifar10': 10, 'caltech101':101, 'imagenet': 1000, 'dummy': 1000}
@@ -114,52 +117,65 @@ lr_steps = [int(x) for x in opt.lr_steps.split(',') if x.strip()]
 metric = CompositeEvalMetric([Accuracy(), TopKAccuracy(5)])
 kv = mx.kv.create(opt.kvstore)
 
-def get_model(model, ctx, opt):
-    """Model initialization."""
-    kwargs = {'ctx': ctx, 'pretrained': opt.use_pretrained, 'classes': classes}
-    if model.startswith('resnet'):
-        kwargs['thumbnail'] = opt.use_thumbnail
-    elif model.startswith('vgg'):
-        kwargs['batch_norm'] = opt.batch_norm
 
-    net = models.get_model(model, **kwargs)
-    if opt.resume:
-        net.load_parameters(opt.resume)
-    elif not opt.use_pretrained:
+def get_model(model, ctx, option):
+    """Model initialization."""
+    kwargs = {'ctx': ctx, 'pretrained': option.use_pretrained, 'classes': classes}
+    if model.startswith('resnet'):
+        kwargs['thumbnail'] = option.use_thumbnail
+    elif model.startswith('vgg'):
+        kwargs['batch_norm'] = option.batch_norm
+
+    network = models.get_model(model, **kwargs)
+    if option.resume:
+        network.load_parameters(option.resume)
+    elif not option.use_pretrained:
         if model in ['alexnet']:
-            net.initialize(mx.init.Normal())
+            network.initialize(mx.init.Normal())
         else:
-            net.initialize(mx.init.Xavier(magnitude=2))
-    net.cast(opt.dtype)
-    return net
+            network.initialize(mx.init.Xavier(magnitude=2))
+    network.cast(option.dtype)
+    return network
+
 
 net = get_model(opt.model, context, opt)
 
-def get_data_iters(dataset, batch_size, opt):
+
+def get_data_iters(image_dataset, num_batch_size, option):
     """get dataset iterators"""
-    if dataset == 'mnist':
-        train_data, val_data = get_mnist_iterator(batch_size, (1, 28, 28),
+    if image_dataset == 'mnist':
+        train_data, val_data = get_mnist_iterator(num_batch_size, (1, 28, 28),
                                                   num_parts=kv.num_workers, part_index=kv.rank)
-    elif dataset == 'cifar10':
-        train_data, val_data = get_cifar10_iterator(batch_size, (3, 32, 32),
+    elif image_dataset == 'cifar10':
+        train_data, val_data = get_cifar10_iterator(num_batch_size, (3, 32, 32),
                                                     num_parts=kv.num_workers, part_index=kv.rank)
-    elif dataset == 'imagenet':
+    elif image_dataset == 'imagenet':
         shape_dim = 299 if model_name == 'inceptionv3' else 224
 
-        if not opt.data_dir:
+        if not option.data_dir:
             raise ValueError('Dir containing raw images in train/val is required for imagenet.'
                              'Please specify "--data-dir"')
 
-        train_data, val_data = get_imagenet_iterator(opt.data_dir, batch_size,
-                                                                opt.num_workers, shape_dim, opt.dtype)
-    elif dataset == 'caltech101':
-        train_data, val_data = get_caltech101_iterator(batch_size, opt.num_workers, opt.dtype)
-    elif dataset == 'dummy':
+        train_data, val_data = get_imagenet_iterator(option.data_dir,
+                                                     num_batch_size,
+                                                     option.num_workers,
+                                                     shape_dim, option.dtype)
+    elif image_dataset == 'caltech101':
+        train_data, val_data = get_caltech101_iterator(num_batch_size, option.num_workers, option.dtype)
+    elif image_dataset == 'dummy':
         shape_dim = 299 if model_name == 'inceptionv3' else 224
-        train_data, val_data = dummy_iterator(batch_size, (3, shape_dim, shape_dim))
+        train_data, val_data = dummy_iterator(num_batch_size, (3, shape_dim, shape_dim))
     return train_data, val_data
 
+
 def test(ctx, val_data):
+    """
+    Validate the accuracy of image classification
+
+    :param ctx: content
+    :param val_data: nd.array
+    :return: metric
+    """
     metric.reset()
     val_data.reset()
     for batch in val_data:
@@ -171,11 +187,13 @@ def test(ctx, val_data):
         metric.update(label, outputs)
     return metric.get()
 
+
 def update_learning_rate(lr, trainer, epoch, ratio, steps):
     """Set the learning rate to the initial value decayed by ratio every N epochs."""
     new_lr = lr * (ratio ** int(np.sum(np.array(steps) < epoch)))
     trainer.set_learning_rate(new_lr)
     return trainer
+
 
 def save_checkpoint(epoch, top1, best_acc):
     if opt.save_frequency and (epoch + 1) % opt.save_frequency == 0:
@@ -188,16 +206,23 @@ def save_checkpoint(epoch, top1, best_acc):
         net.save_parameters(fname)
         logger.info('[Epoch %d] Saving checkpoint to %s with Accuracy: %.4f', epoch, fname, top1)
 
-def train(opt, ctx):
+
+def train(option, ctx):
+    """
+    Train model for image classification
+
+    :param option: options to arguments
+    :param ctx: content
+    """
     if isinstance(ctx, mx.Context):
         ctx = [ctx]
 
-    train_data, val_data = get_data_iters(dataset, batch_size, opt)
+    train_data, val_data = get_data_iters(dataset, batch_size, option)
     net.collect_params().reset_ctx(ctx)
     trainer = gluon.Trainer(net.collect_params(), 'sgd',
-                            optimizer_params={'learning_rate': opt.lr,
-                                              'wd': opt.wd,
-                                              'momentum': opt.momentum,
+                            optimizer_params={'learning_rate': option.lr,
+                                              'wd': option.wd,
+                                              'momentum': option.momentum,
                                               'multi_precision': True},
                             kvstore=kv)
     loss = gluon.loss.SoftmaxCrossEntropyLoss()
@@ -205,15 +230,15 @@ def train(opt, ctx):
     total_time = 0
     num_epochs = 0
     best_acc = [0]
-    for epoch in range(opt.start_epoch, opt.epochs):
-        trainer = update_learning_rate(opt.lr, trainer, epoch, opt.lr_factor, lr_steps)
+    for epoch in range(option.start_epoch, option.epochs):
+        trainer = update_learning_rate(option.lr, trainer, epoch, option.lr_factor, lr_steps)
         tic = time.time()
         train_data.reset()
         metric.reset()
         btic = time.time()
         for i, batch in enumerate(train_data):
-            data = gluon.utils.split_and_load(batch.data[0].astype(opt.dtype), ctx_list=ctx, batch_axis=0)
-            label = gluon.utils.split_and_load(batch.label[0].astype(opt.dtype), ctx_list=ctx, batch_axis=0)
+            data = gluon.utils.split_and_load(batch.data[0].astype(option.dtype), ctx_list=ctx, batch_axis=0)
+            label = gluon.utils.split_and_load(batch.label[0].astype(option.dtype), ctx_list=ctx, batch_axis=0)
             outputs = []
             Ls = []
             with ag.record():
@@ -227,10 +252,10 @@ def train(opt, ctx):
                 ag.backward(Ls)
             trainer.step(batch.data[0].shape[0])
             metric.update(label, outputs)
-            if opt.log_interval and not (i+1)%opt.log_interval:
+            if option.log_interval and not (i+1) % option.log_interval:
                 name, acc = metric.get()
-                logger.info('Epoch[%d] Batch [%d]\tSpeed: %f samples/sec\t%s=%f, %s=%f'%(
-                               epoch, i, batch_size/(time.time()-btic), name[0], acc[0], name[1], acc[1]))
+                logger.info('Epoch[%d] Batch [%d]\tSpeed: %f samples/sec\t%s=%f, %s=%f',
+                            epoch, i, batch_size/(time.time()-btic), name[0], acc[0], name[1], acc[1])
             btic = time.time()
 
         epoch_time = time.time()-tic
@@ -238,21 +263,25 @@ def train(opt, ctx):
         # First epoch will usually be much slower than the subsequent epics,
         # so don't factor into the average
         if num_epochs > 0:
-          total_time = total_time + epoch_time
+            total_time = total_time + epoch_time
         num_epochs = num_epochs + 1
 
         name, acc = metric.get()
-        logger.info('[Epoch %d] training: %s=%f, %s=%f'%(epoch, name[0], acc[0], name[1], acc[1]))
-        logger.info('[Epoch %d] time cost: %f'%(epoch, epoch_time))
+        logger.info('[Epoch %d] training: %s=%f, %s=%f', epoch, name[0], acc[0], name[1], acc[1])
+        logger.info('[Epoch %d] time cost: %f', epoch, epoch_time)
         name, val_acc = test(ctx, val_data)
-        logger.info('[Epoch %d] validation: %s=%f, %s=%f'%(epoch, name[0], val_acc[0], name[1], val_acc[1]))
+        logger.info('[Epoch %d] validation: %s=%f, %s=%f', epoch, name[0], val_acc[0], name[1], val_acc[1])
 
         # save model if meet requirements
         save_checkpoint(epoch, val_acc[0], best_acc)
     if num_epochs > 1:
         print('Average epoch time: {}'.format(float(total_time)/(num_epochs - 1)))
 
+
 def main():
+    """
+    Program entry point
+    """
     if opt.builtin_profiler > 0:
         profiler.set_config(profile_all=True, aggregate_stats=True)
         profiler.set_state('run')
@@ -270,11 +299,14 @@ def main():
                 eval_data=val_data,
                 num_epoch=opt.epochs,
                 kvstore=kv,
-                batch_end_callback = mx.callback.Speedometer(batch_size, max(1, opt.log_interval)),
-                epoch_end_callback = mx.callback.do_checkpoint('image-classifier-%s'% opt.model),
-                optimizer = 'sgd',
-                optimizer_params = {'learning_rate': opt.lr, 'wd': opt.wd, 'momentum': opt.momentum, 'multi_precision': True},
-                initializer = mx.init.Xavier(magnitude=2))
+                batch_end_callback=mx.callback.Speedometer(batch_size, max(1, opt.log_interval)),
+                epoch_end_callback=mx.callback.do_checkpoint('image-classifier-%s'% opt.model),
+                optimizer='sgd',
+                optimizer_params={'learning_rate': opt.lr,
+                                  'wd': opt.wd,
+                                  'momentum': opt.momentum,
+                                  'multi_precision': True},
+                initializer=mx.init.Xavier(magnitude=2))
         mod.save_parameters('image-classifier-%s-%d-final.params'%(opt.model, opt.epochs))
     else:
         if opt.mode == 'hybrid':
@@ -284,9 +316,11 @@ def main():
         profiler.set_state('stop')
         print(profiler.dumps())
 
+
 if __name__ == '__main__':
     if opt.profile:
-        import hotshot, hotshot.stats
+        import hotshot
+        import hotshot.stats
         prof = hotshot.Profile('image-classifier-%s-%s.prof'%(opt.model, opt.mode))
         prof.runcall(main)
         prof.close()

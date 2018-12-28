@@ -14,7 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Train the model of embedding learning based on a Margin-based Loss with distance weighted sampling
+for image classification
+"""
 from __future__ import division
 
 import argparse
@@ -23,12 +26,12 @@ import time
 
 import numpy as np
 from bottleneck import argpartition
+from data import cub200_iterator
 
 import mxnet as mx
-from data import cub200_iterator
+from mxnet import autograd as ag, nd
 from mxnet import gluon
 from mxnet.gluon.model_zoo import vision as models
-from mxnet import autograd as ag, nd
 from model import MarginNet, MarginLoss
 
 logging.basicConfig(level=logging.INFO)
@@ -87,8 +90,7 @@ np.random.seed(opt.seed)
 
 batch_size = opt.batch_size
 
-gpus = [] if opt.gpus is None or opt.gpus is '' else [
-    int(gpu) for gpu in opt.gpus.split(',')]
+gpus = [] if opt.gpus is None or opt.gpus == '' else [int(gpu) for gpu in opt.gpus.split(',')]
 num_gpus = len(gpus)
 
 batch_size *= max(1, num_gpus)
@@ -158,9 +160,9 @@ def test(ctx):
     return evaluate_emb(outputs, labels)
 
 
-def get_lr(lr, epoch, steps, factor):
+def get_lr(lr, epoch, steps_list, factor):
     """Get learning rate based on schedule."""
-    for s in steps:
+    for s in steps_list:
         if epoch >= s:
             lr *= factor
     return lr
@@ -232,20 +234,19 @@ def train(epochs, ctx):
                 trainer_beta.step(batch.data[0].shape[0])
 
             if (i+1) % opt.log_interval == 0:
-                logging.info('[Epoch %d, Iter %d] training loss=%f' % (
-                    epoch, i+1, cumulative_loss - prev_loss))
+                logging.info('[Epoch %d, Iter %d] training loss=%f', epoch, i+1, (cumulative_loss - prev_loss))
                 prev_loss = cumulative_loss
 
-        logging.info('[Epoch %d] training loss=%f'%(epoch, cumulative_loss))
-        logging.info('[Epoch %d] time cost: %f'%(epoch, time.time()-tic))
+        logging.info('[Epoch %d] training loss=%f', epoch, cumulative_loss)
+        logging.info('[Epoch %d] time cost: %f', epoch, (time.time()-tic))
 
         names, val_accs = test(ctx)
         for name, val_acc in zip(names, val_accs):
-            logging.info('[Epoch %d] validation: %s=%f'%(epoch, name, val_acc))
+            logging.info('[Epoch %d] validation: %s=%f', epoch, name, val_acc)
 
         if val_accs[0] > best_val:
             best_val = val_accs[0]
-            logging.info('Saving %s.' % opt.save_model_prefix)
+            logging.info('Saving %s.', opt.save_model_prefix)
             net.save_parameters('%s.params' % opt.save_model_prefix)
     return best_val
 

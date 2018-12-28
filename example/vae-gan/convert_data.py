@@ -21,15 +21,13 @@ Created on Jun 15, 2017
 @author: shujon
 '''
 import sys
-import os
 import logging
 import argparse
-import errno
-from PIL import Image
 import scipy.io
 import scipy.misc
 import numpy as np
-from mxnet.test_utils import *
+from PIL import Image
+from mxnet.test_utils import download
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
@@ -43,7 +41,8 @@ def convert_mat_to_images(args):
     '''convert the caltech101 mat file to images
     Examples
     --------
-    python convert_data.py --dataset /home/ubuntu/datasets/caltech101/data/caltech101_silhouettes_28.mat --save_path /home/ubuntu/datasets/caltech101/data/ --invert --height 32 --width 32
+    python convert_data.py --dataset /home/ubuntu/datasets/caltech101/data/caltech101_silhouettes_28.mat
+    --save_path /home/ubuntu/datasets/caltech101/data/ --invert --height 32 --width 32
     '''
     dataset = scipy.io.loadmat("{}/{}".format(args.save_path, args.dataset))
 
@@ -55,8 +54,8 @@ def convert_mat_to_images(args):
 
     total_image = X.shape[0]
 
-    h=args.height
-    w=args.width
+    h = args.height
+    w = args.width
 
     for i in range(total_image):
         img = X[i]
@@ -69,6 +68,7 @@ def convert_mat_to_images(args):
         img = img.rotate(-90)
         img = img.resize([h, w], Image.BILINEAR)
         img.save(args.save_path + '/img' + str(i) + '.png')
+
 
 def parse_args():
     '''Parses input args
@@ -97,6 +97,7 @@ def main():
     args = parse_args()
     download(DEFAULT_DATASET_URL, fname=args.dataset, dirname=args.save_path, overwrite=False)
     convert_mat_to_images(args)
+
 
 if __name__ == '__main__':
     sys.exit(main())

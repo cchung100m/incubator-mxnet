@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions to build Speech-To-Text (STT) models on DeepSpeech2 of Baidu
+"""
 import os
 import os.path
 
@@ -91,7 +93,8 @@ def spectrogram(samples, fft_length=256, sample_rate=2, hop_length=128):
     assert np.all(x[:, 1] == samples[hop_length:(hop_length + fft_length)])
 
     # broadcast window, compute fft over columns and square mod
-    # This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of a real-valued array by means of an efficient algorithm called the Fast Fourier Transform (FFT).
+    # This function computes the one-dimensional n-point discrete Fourier Transform (DFT) of a real-valued array
+    # by means of an efficient algorithm called the Fast Fourier Transform (FFT).
     x = np.fft.rfft(x * window, axis=0)
     x = np.absolute(x) ** 2
 
@@ -144,4 +147,3 @@ def spectrogram_from_file(filename, step=10, window=20, max_freq=None,
             return res
     else:
         return np.loadtxt(csvfilename)
-

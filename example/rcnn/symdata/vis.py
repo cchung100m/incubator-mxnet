@@ -14,6 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""
+visualize the bounding box in the image
+"""
+
 
 def vis_detection(im_orig, detections, class_names, thresh=0.7):
     """visualize [cls, conf, x1, y1, x2, y2]"""

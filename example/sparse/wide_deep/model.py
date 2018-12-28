@@ -14,12 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate wide and deep model using the  Census Income Data Set.
+"""
 import mxnet as mx
 
 
-def wide_deep_model(num_linear_features, num_embed_features, num_cont_features, 
-                    input_dims, hidden_units):
+def wide_deep_model(num_linear_features, num_embed_features, num_cont_features, input_dims, hidden_units):
+    """
+    Generate wide and deep model
+    """
     # wide model
     csr_data = mx.symbol.Variable("csr_data", stype='csr')
     label = mx.symbol.Variable("softmax_label")
@@ -44,8 +48,8 @@ def wide_deep_model(num_linear_features, num_embed_features, num_cont_features,
 
     for i, embed in enumerate(embeds):
         embed_weight = mx.symbol.Variable('embed_%d_weight' % i, stype='row_sparse')
-        features.append(mx.symbol.sparse.Embedding(data=embed, weight=embed_weight,
-                        input_dim=input_dims[i], output_dim=hidden_units[0], sparse_grad=True))
+        features.append(mx.symbol.sparse.Embedding(data=embed, weight=embed_weight, input_dim=input_dims[i],
+                                                   output_dim=hidden_units[0], sparse_grad=True))
 
     hidden = mx.symbol.concat(*features, dim=1)
     hidden = mx.symbol.FullyConnected(data=hidden, num_hidden=hidden_units[1])

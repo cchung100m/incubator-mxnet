@@ -26,10 +26,10 @@ import logging
 from threading import Thread
 import argparse
 import signal
-
+from dmlc_tracker import tracker
 sys.path.append(os.path.join(os.environ['HOME'], "mxnet/3rdparty/dmlc-core/tracker"))
 sys.path.append(os.path.join('/scratch', "mxnet/3rdparty/dmlc-core/tracker"))
-from dmlc_tracker import tracker
+
 
 keepalive = """
 nrep=0
@@ -42,6 +42,7 @@ do
     nrep=$((nrep+1));
 done
 """
+
 
 def exec_cmd(cmd, role, taskid, pass_env):
     """Execute the command line command."""
@@ -76,9 +77,12 @@ def exec_cmd(cmd, role, taskid, pass_env):
             else:
                 raise RuntimeError('Get nonzero return code=%d' % ret)
 
-def submit(args):
-    gpus = args.gpus.strip().split(',')
-    """Submit function of local jobs."""
+
+def submit(args_list):
+    """
+    Submit function of local jobs.
+    """
+    gpus = args_list.gpus.strip().split(',')
     def mthread_submit(nworker, nserver, envs):
         """
         customized submit script, that submit nslave jobs, each must contain args as parameter
@@ -92,43 +96,46 @@ def submit(args):
         """
         procs = {}
         for i, gpu in enumerate(gpus):
-            for j in range(args.num_threads):
-                procs[i] = Thread(target=exec_cmd, args=(args.command + ['--gpus=%s'%gpu], 'worker', i*args.num_threads+j, envs))
+            for j in range(args_list.num_threads):
+                procs[i] = Thread(target=exec_cmd, args=(args_list.command + ['--gpus=%s' % gpu],
+                                                         'worker', i*args_list.num_threads+j, envs))
                 procs[i].setDaemon(True)
                 procs[i].start()
-        for i in range(len(gpus)*args.num_threads, len(gpus)*args.num_threads + nserver):
-            procs[i] = Thread(target=exec_cmd, args=(args.command, 'server', i, envs))
+        for i in range(len(gpus)*args_list.num_threads, len(gpus)*args_list.num_threads + nserver):
+            procs[i] = Thread(target=exec_cmd, args=(args_list.command, 'server', i, envs))
             procs[i].setDaemon(True)
             procs[i].start()
 
-    # call submit, with nslave, the commands to run each job and submit function
-    tracker.submit(args.num_threads*len(gpus), args.num_servers, fun_submit=mthread_submit,
-                   pscmd=(' '.join(args.command)))
+    # call submit, args_list nslave, the commands to run each job and submit function
+    tracker.submit(args_list.num_threads*len(gpus), args_list.num_servers, fun_submit=mthread_submit,
+                   pscmd=(' '.join(args_list.command)))
 
-def signal_handler(signal, frame):
+
+def signal_handler(signal_iter, frame):
     logging.info('Stop launcher')
     sys.exit(0)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Launch a distributed job')
     parser.add_argument('--gpus', type=str, help='the gpus will be used, e.g "0,1,2,3"')
     parser.add_argument('-n', '--num-threads', required=True, type=int,
-                        help = 'number of threads per gpu')
+                        help='number of threads per gpu')
     parser.add_argument('-s', '--num-servers', type=int,
-                        help = 'number of server nodes to be launched, \
+                        help='number of server nodes to be launched, \
                         in default it is equal to NUM_WORKERS')
     parser.add_argument('-H', '--hostfile', type=str,
-                        help = 'the hostfile of slave machines which will run \
+                        help='the hostfile of slave machines which will run \
                         the job. Required for ssh and mpi launcher')
     parser.add_argument('--sync-dst-dir', type=str,
-                        help = 'if specificed, it will sync the current \
+                        help='if specificed, it will sync the current \
                         directory into slave machines\'s SYNC_DST_DIR if ssh \
                         launcher is used')
     parser.add_argument('--launcher', type=str, default='local',
-                        choices = ['local', 'ssh', 'mpi', 'sge', 'yarn'],
-                        help = 'the launcher to use')
+                        choices=['local', 'ssh', 'mpi', 'sge', 'yarn'],
+                        help='the launcher to use')
     parser.add_argument('command', nargs='+',
-                        help = 'command for launching the program')
+                        help='command for launching the program')
     args, unknown = parser.parse_known_args()
     args.command += unknown
     if args.num_servers is None:

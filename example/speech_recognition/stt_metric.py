@@ -14,9 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Generate helper functions to RNN/LSTM model metrics
+"""
 import numpy as np
+import mxnet as mx
 
 from label_util import LabelUtil
 from log_util import LogUtil
@@ -36,6 +38,9 @@ def check_label_shapes(labels, preds, shape=0):
 
 
 class STTMetric(mx.metric.EvalMetric):
+    """
+    Create metric module for  Speech-To-Text (STT) models
+    """
     def __init__(self, batch_size, num_gpu, is_epoch_end=False, is_logging=True):
         super(STTMetric, self).__init__('STTMetric')
 
@@ -49,6 +54,9 @@ class STTMetric(mx.metric.EvalMetric):
         self.is_logging = is_logging
 
     def update(self, labels, preds):
+        """
+        Update Speech-To-Text (STT) models
+        """
         check_label_shapes(labels, preds)
         if self.is_logging:
             log = LogUtil.getInstance().getlogger()
@@ -110,7 +118,7 @@ def pred_best(p):
     for i in range(len(p)):
         c1 = p1[i]
         c2 = p1[i + 1]
-        if c2 == 0 or c2 == c1:
+        if c2 in (0, c1):
             continue
         ret.append(c2)
     return ret
@@ -128,13 +136,16 @@ def remove_blank(l):
 def remove_space(l):
     labelUtil = LabelUtil.getInstance()
     ret = []
-    for i in range(len(l)):
-        if l[i] != labelUtil.get_space_index():
-            ret.append(l[i])
+    for i, element in enumerate(l):
+        if element != labelUtil.get_space_index():
+            ret.append(element)
     return ret
 
 
 def ctc_loss(label, prob, remainder, seq_length, batch_size, num_gpu=1, big_num=1e10):
+    """
+    Generate Warp CTC for loss calculations
+    """
     label_ = [0, 0]
     prob[prob < 1 / big_num] = 1 / big_num
     log_prob = np.log(prob)
@@ -164,23 +175,26 @@ def ctc_loss(label, prob, remainder, seq_length, batch_size, num_gpu=1, big_num=
 # label is done with remove_blank
 # pred is got from pred_best
 def levenshtein_distance(label, pred):
+    """
+    Generate evaluation between label and prediction
+    """
     n_label = len(label) + 1
     n_pred = len(pred) + 1
-    if (label == pred):
+    if label == pred:
         return 0
-    if (len(label) == 0):
+    if len(label) == 0:
         return len(pred)
-    if (len(pred) == 0):
+    if len(pred) == 0:
         return len(label)
 
     v0 = [i for i in range(n_label)]
     v1 = [0 for i in range(n_label)]
 
-    for i in range(len(pred)):
+    for i, element_i in enumerate(pred):
         v1[0] = i + 1
 
-        for j in range(len(label)):
-            cost = 0 if label[j] == pred[i] else 1
+        for j, element_j in enumerate(label):
+            cost = 0 if element_j == element_i else 1
             v1[j + 1] = min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost)
 
         for j in range(n_label):
@@ -190,6 +204,9 @@ def levenshtein_distance(label, pred):
 
 
 def char_match_1way(char_label, char_pred, criteria, n_whole_label):
+    """
+    Generate helper function char_match_1way module to evaluate model
+    """
     n_label = len(char_label)
     n_pred = len(char_pred)
 
@@ -227,6 +244,9 @@ def char_match_1way(char_label, char_pred, criteria, n_whole_label):
 
 
 def char_match_2way(label, pred):
+    """
+    Generate helper function char_match_2way module to evaluate model
+    """
     criterias = [0.98, 0.96, 0.93, 0.9, 0.85, 0.8, 0.7]
     r_pred = pred[::-1]
     r_label = label[::-1]

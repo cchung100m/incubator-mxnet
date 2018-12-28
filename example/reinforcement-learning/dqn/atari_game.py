@@ -14,14 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate operator for loading package from arcade learning environment and enabling atari game environment
+"""
 __author__ = 'sxjscience'
 
-import mxnet as mx
-import numpy
-import cv2
 import logging
 import os
+import numpy
+import cv2
 from utils import get_numpy_rng
 from replay_memory import ReplayMemory
 from game import Game
@@ -34,14 +35,17 @@ _default_rom_path = os.path.join(_dirname, "roms", "breakout.bin")
 
 
 def ale_load_from_rom(rom_path, display_screen):
+    """
+    Load packages from arcade learning environment
+    """
     rng = get_numpy_rng()
     try:
         from ale_python_interface import ALEInterface
     except ImportError as e:
-        raise ImportError('Unable to import the python package of Arcade Learning Environment. ' \
-                           'ALE may not have been installed correctly. Refer to ' \
-                           '`https://github.com/mgbellemare/Arcade-Learning-Environment` for some' \
-                           'installation guidance')
+        raise ImportError('Unable to import the python package of Arcade Learning Environment. '
+                          'ALE may not have been installed correctly. Refer to '
+                          '`https://github.com/mgbellemare/Arcade-Learning-Environment` for some'
+                          'installation guidance')
 
     ale = ALEInterface()
     ale.setInt(b'random_seed', rng.randint(1000))
@@ -50,7 +54,7 @@ def ale_load_from_rom(rom_path, display_screen):
         if sys.platform == 'darwin':
             import pygame
             pygame.init()
-            ale.setBool(b'sound', False) # Sound doesn't work on OSX
+            ale.setBool(b'sound', False)  # Sound doesn't work on OSX
         ale.setBool(b'display_screen', True)
     else:
         ale.setBool(b'display_screen', False)
@@ -60,6 +64,9 @@ def ale_load_from_rom(rom_path, display_screen):
 
 
 class AtariGame(Game):
+    """
+    Generate helper functions to start/terminate episode and get observation from atari game
+    """
     def __init__(self,
                  rom_path=_default_rom_path,
                  frame_skip=4, history_length=4,
@@ -83,8 +90,7 @@ class AtariGame(Game):
         self.death_end_episode = death_end_episode
         self.screen_buffer_length = 2
         self.screen_buffer = numpy.empty((self.screen_buffer_length,
-                                          self.ale.getScreenDims()[1], self.ale.getScreenDims()[0]),
-                                         dtype='uint8')
+                                          self.ale.getScreenDims()[1], self.ale.getScreenDims()[0]), dtype='uint8')
         self.replay_memory = ReplayMemory(state_dim=(resized_rows, resized_cols),
                                           history_length=history_length,
                                           memory_size=replay_memory_size,
@@ -107,7 +113,6 @@ class AtariGame(Game):
     def force_restart(self):
         self.start()
         self.replay_memory.clear()
-
 
     def begin_episode(self, max_episode_step=DEFAULT_MAX_EPISODE_STEP):
         """
@@ -139,7 +144,7 @@ class AtariGame(Game):
 
     def get_observation(self):
         image = self.screen_buffer.max(axis=0)
-        if 'crop' == self.resize_mode:
+        if self.resize_mode == 'crop':
             original_rows, original_cols = image.shape
             new_resized_rows = int(round(
                 float(original_rows) * self.resized_cols / original_cols))
@@ -147,7 +152,7 @@ class AtariGame(Game):
                                  interpolation=cv2.INTER_LINEAR)
             crop_y_cutoff = new_resized_rows - self.crop_offset - self.resized_rows
             img = resized[crop_y_cutoff:
-            crop_y_cutoff + self.resized_rows, :]
+                          crop_y_cutoff + self.resized_rows, :]
             return img
         else:
             return cv2.resize(image, (self.resized_cols, self.resized_rows),

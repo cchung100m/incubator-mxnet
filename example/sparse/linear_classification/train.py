@@ -14,13 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-from mxnet.test_utils import *
-from data import get_avazu_data
-from linear_model import *
+"""
+Trains a linear model using the sparse feature in MXNet.
+"""
 import argparse
 import os
+import mxnet as mx
+# from mxnet.test_utils import *
+from data import get_avazu_data
+from linear_model import linear_model
 
 parser = argparse.ArgumentParser(description="Run sparse linear classification " \
                                              "with distributed kvstore",
@@ -44,14 +46,17 @@ AVAZU = {
     'num_features': 1000001,
 }
 
+
 def batch_row_ids(data_batch):
     """ Generate row ids based on the current mini-batch """
     return {'weight': data_batch.data[0].indices}
+
 
 def all_row_ids(data_batch):
     """ Generate row ids for all rows """
     all_rows = mx.nd.arange(0, AVAZU['num_features'], dtype='int64')
     return {'weight': all_rows}
+
 
 if __name__ == '__main__':
     import logging
@@ -128,7 +133,7 @@ if __name__ == '__main__':
         mod.prepare(None, all_row_ids)
         # evaluate metric on validation dataset
         score = mod.score(eval_data, ['nll_loss'])
-        logging.info('epoch %d, eval nll = %s ' % (epoch, score[0][1]))
+        logging.info('epoch %d, eval nll = %s ', epoch, score[0][1])
 
         # prepare the module weight with all row ids before making a checkpoint.
         mod.prepare(None, all_row_ids)

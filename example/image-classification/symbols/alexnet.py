@@ -18,37 +18,43 @@
 """
 Reference:
 
-Krizhevsky, Alex, Ilya Sutskever, and Geoffrey E. Hinton. "Imagenet classification with deep convolutional neural networks." Advances in neural information processing systems. 2012.
+Krizhevsky, Alex, Ilya Sutskever, and Geoffrey E. Hinton.
+"Imagenet classification with deep convolutional neural networks."
+Advances in neural information processing systems. 2012.
 """
-import mxnet as mx
+
 import numpy as np
+import mxnet as mx
+
 
 def get_symbol(num_classes, dtype='float32', **kwargs):
+    """
+    Generate CNN
+    :param num_classes: dimensions of output layer
+    :param dtype: type of cell
+        Cast to cell
+    :param kwargs:
+    :return: value of softmax
+    """
     input_data = mx.sym.Variable(name="data")
     if dtype == 'float16':
         input_data = mx.sym.Cast(data=input_data, dtype=np.float16)
     # stage 1
-    conv1 = mx.sym.Convolution(name='conv1',
-        data=input_data, kernel=(11, 11), stride=(4, 4), num_filter=96)
+    conv1 = mx.sym.Convolution(name='conv1', data=input_data, kernel=(11, 11), stride=(4, 4), num_filter=96)
     relu1 = mx.sym.Activation(data=conv1, act_type="relu")
     lrn1 = mx.sym.LRN(data=relu1, alpha=0.0001, beta=0.75, knorm=2, nsize=5)
-    pool1 = mx.sym.Pooling(
-        data=lrn1, pool_type="max", kernel=(3, 3), stride=(2,2))
+    pool1 = mx.sym.Pooling(data=lrn1, pool_type="max", kernel=(3, 3), stride=(2, 2))
     # stage 2
-    conv2 = mx.sym.Convolution(name='conv2',
-        data=pool1, kernel=(5, 5), pad=(2, 2), num_filter=256)
+    conv2 = mx.sym.Convolution(name='conv2', data=pool1, kernel=(5, 5), pad=(2, 2), num_filter=256)
     relu2 = mx.sym.Activation(data=conv2, act_type="relu")
     lrn2 = mx.sym.LRN(data=relu2, alpha=0.0001, beta=0.75, knorm=2, nsize=5)
     pool2 = mx.sym.Pooling(data=lrn2, kernel=(3, 3), stride=(2, 2), pool_type="max")
     # stage 3
-    conv3 = mx.sym.Convolution(name='conv3',
-        data=pool2, kernel=(3, 3), pad=(1, 1), num_filter=384)
+    conv3 = mx.sym.Convolution(name='conv3', data=pool2, kernel=(3, 3), pad=(1, 1), num_filter=384)
     relu3 = mx.sym.Activation(data=conv3, act_type="relu")
-    conv4 = mx.sym.Convolution(name='conv4',
-        data=relu3, kernel=(3, 3), pad=(1, 1), num_filter=384)
+    conv4 = mx.sym.Convolution(name='conv4', data=relu3, kernel=(3, 3), pad=(1, 1), num_filter=384)
     relu4 = mx.sym.Activation(data=conv4, act_type="relu")
-    conv5 = mx.sym.Convolution(name='conv5',
-        data=relu4, kernel=(3, 3), pad=(1, 1), num_filter=256)
+    conv5 = mx.sym.Convolution(name='conv5', data=relu4, kernel=(3, 3), pad=(1, 1), num_filter=256)
     relu5 = mx.sym.Activation(data=conv5, act_type="relu")
     pool3 = mx.sym.Pooling(data=relu5, kernel=(3, 3), stride=(2, 2), pool_type="max")
     # stage 4

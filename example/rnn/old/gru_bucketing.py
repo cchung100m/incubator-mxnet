@@ -18,12 +18,13 @@
 # pylint: disable=C0111,too-many-arguments,too-many-instance-attributes,too-many-locals,redefined-outer-name,fixme
 # pylint: disable=superfluous-parens, no-member, invalid-name
 import sys
-sys.path.insert(0, "../../python")
 import numpy as np
 import mxnet as mx
-
 from gru import gru_unroll
 from bucket_io import BucketSentenceIter, default_build_vocab, DummyIter
+
+sys.path.insert(0, "../../python")
+
 
 def Perplexity(label, pred):
     label = label.T.reshape((-1,))
@@ -31,6 +32,7 @@ def Perplexity(label, pred):
     for i in range(pred.shape[0]):
         loss += -np.log(max(1e-10, pred[i][int(label[i])]))
     return np.exp(loss / label.size)
+
 
 if __name__ == '__main__':
     batch_size = 32
@@ -48,15 +50,14 @@ if __name__ == '__main__':
     # dummy data is used to test speed without IO
     dummy_data = False
 
-    #contexts = [mx.context.gpu(i) for i in range(1)]
+    # contexts = [mx.context.gpu(i) for i in range(1)]
     contexts = mx.context.cpu()
 
     vocab = default_build_vocab("./data/sherlockholmes.train.txt")
 
     def sym_gen(seq_len):
-        return gru_unroll(num_lstm_layer, seq_len, len(vocab),
-                           num_hidden=num_hidden, num_embed=num_embed,
-                           num_label=len(vocab))
+        return gru_unroll(num_lstm_layer, seq_len, len(vocab), num_hidden=num_hidden, num_embed=num_embed,
+                          num_label=len(vocab))
 
     init_h = [('l%d_init_h'%l, (batch_size, num_hidden)) for l in range(num_lstm_layer)]
 
@@ -87,7 +88,5 @@ if __name__ == '__main__':
     head = '%(asctime)-15s %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=head)
 
-    model.fit(X=data_train, eval_data=data_val,
-              eval_metric = mx.metric.np(Perplexity),
+    model.fit(X=data_train, eval_data=data_val, eval_metric=mx.metric.np(Perplexity),
               batch_end_callback=mx.callback.Speedometer(batch_size, 50),)
-

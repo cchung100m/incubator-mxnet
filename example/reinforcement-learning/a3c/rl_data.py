@@ -15,14 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from __future__ import print_function
+"""
+Generate Iterator to environment data for reinforcement learning
+"""
 
+from __future__ import print_function
+import socket
 import math
 import multiprocessing
 import multiprocessing.pool
 import time
 from threading import Thread
-
+import queue
 import numpy as np
 from flask import Flask, Response, render_template
 
@@ -30,13 +34,11 @@ import cv2
 import gym
 import mxnet as mx
 
-try:
-    import queue as queue
-except ImportError:
-    import Queue as queue
 
-
-def make_web(queue):
+def make_web(queue_list):
+    """
+    Start the web instance of environment
+    """
     app = Flask(__name__)
 
     @app.route('/')
@@ -45,7 +47,7 @@ def make_web(queue):
 
     def gen():
         while True:
-            frame = queue.get()
+            frame = queue_list.get()
             _, frame = cv2.imencode('.JPEG', frame)
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame.tostring() + b'\r\n')
@@ -57,10 +59,14 @@ def make_web(queue):
 
     try:
         app.run(host='0.0.0.0', port=8889)
-    except:
+    except socket.error:
         print('unable to open port')
 
+
 def visual(X, show=True):
+    """
+    Get visualization of interaction with environment
+    """
     X = X.transpose((0, 2, 3, 1))
     N = X.shape[0]
     n = int(math.ceil(math.sqrt(N)))
@@ -68,7 +74,7 @@ def visual(X, show=True):
     w = X.shape[2]
     buf = np.zeros((h*n, w*n, X.shape[3]), dtype=np.uint8)
     for i in range(N):
-        x = i%n
+        x = i % n
         y = i//n
         buf[h*y:h*(y+1), w*x:w*(x+1), :] = X[i]
     if show:
@@ -76,15 +82,20 @@ def visual(X, show=True):
         cv2.waitKey(1)
     return buf
 
+
 def env_step(args):
     return args[0].step(args[1])
 
+
 class RLDataIter(object):
-    def __init__(self, batch_size, input_length, nthreads=6, web_viz=False):
+    """
+    Generate Iterator to interact with environment
+    """
+    def __init__(self, num_batch_size, input_length, nthreads=6, web_viz=False):
         super(RLDataIter, self).__init__()
-        self.batch_size = batch_size
+        self.batch_size = num_batch_size
         self.input_length = input_length
-        self.env = [self.make_env() for _ in range(batch_size)]
+        self.env = [self.make_env() for _ in range(num_batch_size)]
         self.act_dim = self.env[0].action_space.n
 
         self.state_ = None
@@ -116,6 +127,9 @@ class RLDataIter(object):
         raise NotImplementedError()
 
     def act(self, action):
+        """
+        Select a action to the next and return "done"
+        """
         if self.nthreads > 1:
             new = self.pool.map(env_step, zip(self.env, action))
         else:
@@ -126,12 +140,12 @@ class RLDataIter(object):
 
         channels = self.state_.shape[1]//self.input_length
         state = np.zeros_like(self.state_)
-        state[:,:-channels,:,:] = self.state_[:,channels:,:,:]
+        state[:, :-channels, :, :] = self.state_[:, channels:, :, :]
         for i, (ob, env) in enumerate(zip(new, self.env)):
             if ob[2]:
-                state[i,-channels:,:,:] = env.reset().transpose((2,0,1))
+                state[i, -channels:, :, :] = env.reset().transpose((2, 0, 1))
             else:
-                state[i,-channels:,:,:] = ob[0].transpose((2,0,1))
+                state[i, -channels:, :, :] = ob[0].transpose((2, 0, 1))
         self.state_ = state
 
         if self.web_viz:
@@ -150,9 +164,12 @@ class RLDataIter(object):
 
 
 class GymDataIter(RLDataIter):
-    def __init__(self, game, batch_size, input_length, web_viz=False):
+    """
+    Generate Iterator to gym data environment
+    """
+    def __init__(self, game, num_batch_size, input_length, web_viz=False):
         self.game = game
-        super(GymDataIter, self).__init__(batch_size, input_length, web_viz=web_viz)
+        super(GymDataIter, self).__init__(num_batch_size, input_length, web_viz=web_viz)
 
     def make_env(self):
         return gym.make(self.game)
@@ -161,14 +178,15 @@ class GymDataIter(RLDataIter):
         data = self.state_[:4, -self.state_.shape[1]//self.input_length:, :, :]
         return visual(np.asarray(data, dtype=np.uint8), False)
 
+
 if __name__ == '__main__':
     batch_size = 64
     dataiter = GymDataIter('Breakout-v0', batch_size, 4)
     dataiter.reset()
     tic = time.time()
     for _ in range(10):
-        #data = dataiter.next().data[0].asnumpy().astype(np.uint8)
-        #visual(data[:,-data.shape[1]/dataiter.input_length:,:,:])
+        # data = dataiter.next().data[0].asnumpy().astype(np.uint8)
+        # visual(data[:,-data.shape[1]/dataiter.input_length:,:,:])
         for _ in range(100):
             dataiter.act([env.action_space.sample() for env in dataiter.env])
             dataiter.clear_history()

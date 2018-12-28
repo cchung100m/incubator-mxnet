@@ -14,14 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+demonstrates the basic usage of the sparse.Embedding operator in MXNet
+"""
 import argparse
 import logging
-import mxnet as mx
+import os
 import numpy as np
+import mxnet as mx
 from data import get_movielens_iter, get_movielens_data
 from model import matrix_fact_net
-import os
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -49,6 +51,7 @@ MOVIELENS = {
     'max_movie': 65135,
 }
 
+
 def batch_row_ids(data_batch):
     """ Generate row ids based on the current mini-batch """
     item = data_batch.data[0]
@@ -56,11 +59,13 @@ def batch_row_ids(data_batch):
     return {'user_weight': user.astype(np.int64),
             'item_weight': item.astype(np.int64)}
 
+
 def all_row_ids(data_batch):
     """ Generate row ids for all rows """
     all_users = mx.nd.arange(0, MOVIELENS['max_user'], dtype='int64')
     all_movies = mx.nd.arange(0, MOVIELENS['max_movie'], dtype='int64')
     return {'user_weight': all_users, 'item_weight': all_movies}
+
 
 if __name__ == '__main__':
     head = '%(asctime)-15s %(message)s'
@@ -125,7 +130,7 @@ if __name__ == '__main__':
         mod.prepare(None, sparse_row_id_fn=all_row_ids)
         # evaluate metric on validation dataset
         score = mod.score(val_iter, ['MSE'])
-        logging.info('epoch %d, eval MSE = %s ' % (epoch, score[0][1]))
+        logging.info('epoch %d, eval MSE = %s ', epoch, score[0][1])
         # reset the iterator for next pass of data
         train_iter.reset()
         val_iter.reset()

@@ -14,19 +14,20 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate main module to build Speech-To-Text (STT) models on DeepSpeech2 of Baidu
+"""
 import json
 import os
 import sys
-from collections import namedtuple
 from datetime import datetime
+import numpy as np
 from config_util import parse_args, parse_contexts, generate_file_path
 from train import do_training
 import mxnet as mx
 from stt_io_iter import STTIter
 from label_util import LabelUtil
 from log_util import LogUtil
-import numpy as np
 from stt_datagenerator import DataGenerator
 from stt_metric import STTMetric
 from stt_bi_graphemes_util import generate_bi_graphemes_dictionary
@@ -40,15 +41,20 @@ os.environ['MXNET_ENABLE_GPU_P2P'] = "0"
 
 logUtil = LogUtil.getInstance()
 
+
 class WHCS:
     width = 0
     height = 0
     channel = 0
     stride = 0
 
+
 class ConfigLogger(object):
-    def __init__(self, log):
-        self.__log = log
+    """
+    Create Logger object
+    """
+    def __init__(self, logger):
+        self.__log = logger
 
     def __call__(self, config):
         self.__log.info("Config:")
@@ -59,7 +65,15 @@ class ConfigLogger(object):
         line = data.strip()
         self.__log.info(line)
 
+
 def load_labelutil(labelUtil, is_bi_graphemes, language="en"):
+    """
+    load label from resources
+    :param labelUtil:
+    :param is_bi_graphemes:
+    :param language:
+    :return:
+    """
     if language == "en":
         if is_bi_graphemes:
             try:
@@ -73,98 +87,99 @@ def load_labelutil(labelUtil, is_bi_graphemes, language="en"):
         raise Exception("Error: Language Type: %s" % language)
 
 
-
-def load_data(args):
-    mode = args.config.get('common', 'mode')
-    if mode not in ['train', 'predict', 'load']:
+def load_data(arguments):
+    """
+    load data from dataset name prefix
+    """
+    selecting_mode = arguments.config.get('common', 'mode')
+    if selecting_mode not in ['train', 'predict', 'load']:
         raise Exception('mode must be the one of the followings - train,predict,load')
-    batch_size = args.config.getint('common', 'batch_size')
+    num_batch_size = arguments.config.getint('common', 'batch_size')
 
     whcs = WHCS()
-    whcs.width = args.config.getint('data', 'width')
-    whcs.height = args.config.getint('data', 'height')
-    whcs.channel = args.config.getint('data', 'channel')
-    whcs.stride = args.config.getint('data', 'stride')
+    whcs.width = arguments.config.getint('data', 'width')
+    whcs.height = arguments.config.getint('data', 'height')
+    whcs.channel = arguments.config.getint('data', 'channel')
+    whcs.stride = arguments.config.getint('data', 'stride')
     save_dir = 'checkpoints'
-    model_name = args.config.get('common', 'prefix')
-    is_bi_graphemes = args.config.getboolean('common', 'is_bi_graphemes')
-    overwrite_meta_files = args.config.getboolean('train', 'overwrite_meta_files')
-    overwrite_bi_graphemes_dictionary = args.config.getboolean('train', 'overwrite_bi_graphemes_dictionary')
-    max_duration = args.config.getfloat('data', 'max_duration')
-    language = args.config.get('data', 'language')
+    pre_trained_model_name = arguments.config.get('common', 'prefix')
+    is_bi_graphemes = arguments.config.getboolean('common', 'is_bi_graphemes')
+    overwrite_meta_files = arguments.config.getboolean('train', 'overwrite_meta_files')
+    overwrite_bi_graphemes_dictionary = arguments.config.getboolean('train', 'overwrite_bi_graphemes_dictionary')
+    max_duration = arguments.config.getfloat('data', 'max_duration')
+    language = arguments.config.get('data', 'language')
 
-    log = logUtil.getlogger()
+    logger = logUtil.getlogger()
     labelUtil = LabelUtil.getInstance()
-    if mode == "train" or mode == "load":
-        data_json = args.config.get('data', 'train_json')
-        val_json = args.config.get('data', 'val_json')
-        datagen = DataGenerator(save_dir=save_dir, model_name=model_name)
+    if selecting_mode in ('train', 'load'):
+        data_json = arguments.config.get('data', 'train_json')
+        val_json = arguments.config.get('data', 'val_json')
+        datagen = DataGenerator(save_dir=save_dir, model_name=pre_trained_model_name)
         datagen.load_train_data(data_json, max_duration=max_duration)
         datagen.load_validation_data(val_json, max_duration=max_duration)
         if is_bi_graphemes:
-            if not os.path.isfile("resources/unicodemap_en_baidu_bi_graphemes.csv") or overwrite_bi_graphemes_dictionary:
+            if not os.path.isfile("resources/unicodemap_en_baidu_bi_graphemes.csv") or \
+                    overwrite_bi_graphemes_dictionary:
                 load_labelutil(labelUtil=labelUtil, is_bi_graphemes=False, language=language)
                 generate_bi_graphemes_dictionary(datagen.train_texts+datagen.val_texts)
         load_labelutil(labelUtil=labelUtil, is_bi_graphemes=is_bi_graphemes, language=language)
-        args.config.set('arch', 'n_classes', str(labelUtil.get_count()))
+        arguments.config.set('arch', 'n_classes', str(labelUtil.get_count()))
 
-        if mode == "train":
+        if selecting_mode == "train":
             if overwrite_meta_files:
-                log.info("Generate mean and std from samples")
-                normalize_target_k = args.config.getint('train', 'normalize_target_k')
+                logger.info("Generate mean and std from samples")
+                normalize_target_k = arguments.config.getint('train', 'normalize_target_k')
                 datagen.sample_normalize(normalize_target_k, True)
             else:
-                log.info("Read mean and std from meta files")
+                logger.info("Read mean and std from meta files")
                 datagen.get_meta_from_file(
-                    np.loadtxt(generate_file_path(save_dir, model_name, 'feats_mean')),
-                    np.loadtxt(generate_file_path(save_dir, model_name, 'feats_std')))
+                    np.loadtxt(generate_file_path(save_dir, pre_trained_model_name, 'feats_mean')),
+                    np.loadtxt(generate_file_path(save_dir, pre_trained_model_name, 'feats_std')))
         elif mode == "load":
             # get feat_mean and feat_std to normalize dataset
             datagen.get_meta_from_file(
-                np.loadtxt(generate_file_path(save_dir, model_name, 'feats_mean')),
-                np.loadtxt(generate_file_path(save_dir, model_name, 'feats_std')))
+                np.loadtxt(generate_file_path(save_dir, pre_trained_model_name, 'feats_mean')),
+                np.loadtxt(generate_file_path(save_dir, pre_trained_model_name, 'feats_std')))
 
-    elif mode == 'predict':
-        test_json = args.config.get('data', 'test_json')
-        datagen = DataGenerator(save_dir=save_dir, model_name=model_name)
+    elif selecting_mode == 'predict':
+        test_json = arguments.config.get('data', 'test_json')
+        datagen = DataGenerator(save_dir=save_dir, model_name=pre_trained_model_name)
         datagen.load_train_data(test_json, max_duration=max_duration)
-        labelutil = load_labelutil(labelUtil, is_bi_graphemes, language="en")
-        args.config.set('arch', 'n_classes', str(labelUtil.get_count()))
+        load_labelutil(labelUtil, is_bi_graphemes, language="en")
+        arguments.config.set('arch', 'n_classes', str(labelUtil.get_count()))
         datagen.get_meta_from_file(
-            np.loadtxt(generate_file_path(save_dir, model_name, 'feats_mean')),
-            np.loadtxt(generate_file_path(save_dir, model_name, 'feats_std')))
+            np.loadtxt(generate_file_path(save_dir, pre_trained_model_name, 'feats_mean')),
+            np.loadtxt(generate_file_path(save_dir, pre_trained_model_name, 'feats_std')))
 
-    is_batchnorm = args.config.getboolean('arch', 'is_batchnorm')
-    if batch_size == 1 and is_batchnorm and (mode == 'train' or mode == 'load'):
+    is_batch_norm = arguments.config.getboolean('arch', 'is_batchnorm')
+    if num_batch_size == 1 and is_batch_norm and (selecting_mode in ('train', 'load')):
         raise Warning('batch size 1 is too small for is_batchnorm')
 
     # sort file paths by its duration in ascending order to implement sortaGrad
-    if mode == "train" or mode == "load":
-        max_t_count = datagen.get_max_seq_length(partition="train")
-        max_label_length = \
-            datagen.get_max_label_length(partition="train", is_bi_graphemes=is_bi_graphemes)
-    elif mode == "predict":
-        max_t_count = datagen.get_max_seq_length(partition="test")
-        max_label_length = \
-            datagen.get_max_label_length(partition="test", is_bi_graphemes=is_bi_graphemes)
+    if selecting_mode in ('train', 'load'):
+        num_max_t_count = datagen.get_max_seq_length(partition="train")
+        max_label_length = datagen.get_max_label_length(partition="train", is_bi_graphemes=is_bi_graphemes)
+    elif selecting_mode == "predict":
+        num_max_t_count = datagen.get_max_seq_length(partition="test")
+        max_label_length = datagen.get_max_label_length(partition="test", is_bi_graphemes=is_bi_graphemes)
 
-    args.config.set('arch', 'max_t_count', str(max_t_count))
-    args.config.set('arch', 'max_label_length', str(max_label_length))
+    arguments.config.set('arch', 'max_t_count', str(num_max_t_count))
+    arguments.config.set('arch', 'max_label_length', str(max_label_length))
     from importlib import import_module
-    prepare_data_template = import_module(args.config.get('arch', 'arch_file'))
-    init_states = prepare_data_template.prepare_data(args)
-    sort_by_duration = (mode == "train")
-    is_bucketing = args.config.getboolean('arch', 'is_bucketing')
-    save_feature_as_csvfile = args.config.getboolean('train', 'save_feature_as_csvfile')
-    if is_bucketing:
-        buckets = json.loads(args.config.get('arch', 'buckets'))
+    prepare_data_template = import_module(arguments.config.get('arch', 'arch_file'))
+    init_states = prepare_data_template.prepare_data(arguments)
+    sort_by_duration = (selecting_mode == "train")
+    is_bucketing_flag = arguments.config.getboolean('arch', 'is_bucketing')
+    save_feature_as_csvfile = arguments.config.getboolean('train', 'save_feature_as_csvfile')
+    if is_bucketing_flag:
+        buckets = json.loads(arguments.config.get('arch', 'buckets'))
         data_loaded = BucketSTTIter(partition="train",
                                     count=datagen.count,
                                     datagen=datagen,
-                                    batch_size=batch_size,
+                                    batch_size=num_batch_size,
                                     num_label=max_label_length,
                                     init_states=init_states,
-                                    seq_length=max_t_count,
+                                    seq_length=num_max_t_count,
                                     width=whcs.width,
                                     height=whcs.height,
                                     sort_by_duration=sort_by_duration,
@@ -175,25 +190,25 @@ def load_data(args):
         data_loaded = STTIter(partition="train",
                               count=datagen.count,
                               datagen=datagen,
-                              batch_size=batch_size,
+                              batch_size=num_batch_size,
                               num_label=max_label_length,
                               init_states=init_states,
-                              seq_length=max_t_count,
+                              seq_length=num_max_t_count,
                               width=whcs.width,
                               height=whcs.height,
                               sort_by_duration=sort_by_duration,
                               is_bi_graphemes=is_bi_graphemes,
                               save_feature_as_csvfile=save_feature_as_csvfile)
 
-    if mode == 'train' or mode == 'load':
-        if is_bucketing:
+    if selecting_mode in ('train', 'load'):
+        if is_bucketing_flag:
             validation_loaded = BucketSTTIter(partition="validation",
                                               count=datagen.val_count,
                                               datagen=datagen,
-                                              batch_size=batch_size,
+                                              batch_size=num_batch_size,
                                               num_label=max_label_length,
                                               init_states=init_states,
-                                              seq_length=max_t_count,
+                                              seq_length=num_max_t_count,
                                               width=whcs.width,
                                               height=whcs.height,
                                               sort_by_duration=False,
@@ -204,59 +219,62 @@ def load_data(args):
             validation_loaded = STTIter(partition="validation",
                                         count=datagen.val_count,
                                         datagen=datagen,
-                                        batch_size=batch_size,
+                                        batch_size=num_batch_size,
                                         num_label=max_label_length,
                                         init_states=init_states,
-                                        seq_length=max_t_count,
+                                        seq_length=num_max_t_count,
                                         width=whcs.width,
                                         height=whcs.height,
                                         sort_by_duration=False,
                                         is_bi_graphemes=is_bi_graphemes,
                                         save_feature_as_csvfile=save_feature_as_csvfile)
-        return data_loaded, validation_loaded, args
-    elif mode == 'predict':
-        return data_loaded, args
+        return data_loaded, validation_loaded, arguments
+    elif selecting_mode == 'predict':
+        return data_loaded, arguments
+
+    return None
 
 
-def load_model(args, contexts, data_train):
-    # load model from model_name prefix and epoch of model_num_epoch with gpu contexts of contexts
-    mode = args.config.get('common', 'mode')
-    load_optimizer_states = args.config.getboolean('load', 'load_optimizer_states')
-    is_start_from_batch = args.config.getboolean('load', 'is_start_from_batch')
+def load_model(args_list, context, data_train_df):
+    """
+    load model from model_name prefix and epoch of model_num_epoch with gpu contexts of contexts
+    """
+    flag = args_list.config.get('common', 'mode')
+    load_optimizer_states_flag = args_list.config.getboolean('load', 'load_optimizer_states')
+    is_start_from_batch = args_list.config.getboolean('load', 'is_start_from_batch')
 
     from importlib import import_module
-    symbol_template = import_module(args.config.get('arch', 'arch_file'))
-    is_bucketing = args.config.getboolean('arch', 'is_bucketing')
+    symbol_template = import_module(args_list.config.get('arch', 'arch_file'))
+    is_bucketing_flag = args_list.config.getboolean('arch', 'is_bucketing')
 
-    if mode == 'train':
-        if is_bucketing:
-            bucketing_arch = symbol_template.BucketingArch(args)
-            model_loaded = bucketing_arch.get_sym_gen()
+    if flag == 'train':
+        if is_bucketing_flag:
+            bucketing_arch = symbol_template.BucketingArch(args_list)
+            loaded_model = bucketing_arch.get_sym_gen()
         else:
-            model_loaded = symbol_template.arch(args)
-        model_num_epoch = None
-    elif mode == 'load' or mode == 'predict':
-        model_file = args.config.get('common', 'model_file')
-        model_name = os.path.splitext(model_file)[0]
-        model_num_epoch = int(model_name[-4:])
-        if is_bucketing:
-            bucketing_arch = symbol_template.BucketingArch(args)
-            model_loaded = bucketing_arch.get_sym_gen()
+            loaded_model = symbol_template.arch(args_list)
+        model_num_epoch_val = None
+    elif flag in ('load', 'predict'):
+        pre_trained_model_file = args_list.config.get('common', 'model_file')
+        pre_trained_model_name = os.path.splitext(pre_trained_model_file)[0]
+        model_num_epoch_val = int(pre_trained_model_name[-4:])
+        if is_bucketing_flag:
+            bucketing_arch = symbol_template.BucketingArch(args_list)
+            loaded_model = bucketing_arch.get_sym_gen()
         else:
-            model_path = 'checkpoints/' + str(model_name[:-5])
+            model_file_path = 'checkpoints/' + str(pre_trained_model_name[:-5])
 
-            data_names = [x[0] for x in data_train.provide_data]
-            label_names = [x[0] for x in data_train.provide_label]
+            data_names_list = [x[0] for x in data_train_df.provide_data]
+            label_names_list = [x[0] for x in data_train_df.provide_label]
 
-            model_loaded = mx.module.Module.load(
-                prefix=model_path, epoch=model_num_epoch, context=contexts,
-                data_names=data_names, label_names=label_names,
-                load_optimizer_states=load_optimizer_states)
+            loaded_model = mx.module.Module.load(prefix=model_file_path, epoch=model_num_epoch_val, context=context,
+                                                 data_names=data_names_list, label_names=label_names_list,
+                                                 load_optimizer_states=load_optimizer_states_flag)
         if is_start_from_batch:
             import re
-            model_num_epoch = int(re.findall('\d+', model_file)[0])
+            model_num_epoch_val = int(re.findall(r'\d+', pre_trained_model_file)[0])
 
-    return model_loaded, model_num_epoch
+    return loaded_model, model_num_epoch_val
 
 
 if __name__ == '__main__':
@@ -295,7 +313,7 @@ if __name__ == '__main__':
     # check the number of gpus is positive divisor of the batch size for data parallel
     if batch_size % num_gpu != 0:
         raise Exception('num_gpu should be positive divisor of batch_size')
-    if mode == "train" or mode == "load":
+    if mode in ('train', 'load'):
         data_train, data_val, args = load_data(args)
     elif mode == "predict":
         data_train, args = load_data(args)
@@ -359,7 +377,7 @@ if __name__ == '__main__':
                 model_loaded.forward(data_batch, is_train=False)
                 model_loaded.update_metric(eval_metric, data_batch.label)
         else:
-            #model_loaded.score(eval_data=data_train, num_batch=None,
+            # model_loaded.score(eval_data=data_train, num_batch=None,
             #                   eval_metric=eval_metric, reset=True)
             for nbatch, data_batch in enumerate(data_train):
                 model_loaded.forward(data_batch, is_train=False)

@@ -17,14 +17,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Train the model to Single Shot MultiBox Object Detector
+"""
 import argparse
-import mxnet as mx
 import os
 from train.train_net import train_net
+import mxnet as mx
 
 
 def parse_args():
+    """
+    Parse the arguments
+    """
     parser = argparse.ArgumentParser(description='Train a Single-shot detection network')
     parser.add_argument('--train-path', dest='train_path', help='train record to use',
                         default=os.path.join(os.getcwd(), 'data', 'train.rec'), type=str)
@@ -103,25 +108,27 @@ def parse_args():
                         help='use difficult ground-truths in evaluation')
     parser.add_argument('--no-voc07', dest='use_voc07_metric', action='store_false',
                         help='dont use PASCAL VOC 07 11-point metric')
-    args = parser.parse_args()
-    return args
+    arguments = parser.parse_args()
+    return arguments
 
-def parse_class_names(args):
+
+def parse_class_names(arguments):
     """ parse # classes and class_names if applicable """
-    num_class = args.num_class
-    if len(args.class_names) > 0:
-        if os.path.isfile(args.class_names):
+    num_class = arguments.num_class
+    if len(arguments.class_names) > 0:
+        if os.path.isfile(arguments.class_names):
             # try to open it to read class names
-            with open(args.class_names, 'r') as f:
-                class_names = [l.strip() for l in f.readlines()]
+            with open(arguments.class_names, 'r') as f:
+                class_names_list = [l.strip() for l in f.readlines()]
         else:
-            class_names = [c.strip() for c in args.class_names.split(',')]
+            class_names_list = [c.strip() for c in arguments.class_names.split(',')]
         assert len(class_names) == num_class, str(len(class_names))
         for name in class_names:
             assert len(name) > 0
     else:
-        class_names = None
-    return class_names
+        class_names_list = None
+    return class_names_list
+
 
 if __name__ == '__main__':
     args = parse_args()

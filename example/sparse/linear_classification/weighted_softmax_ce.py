@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate loss function module for the linear model using the sparse feature in MXNet.
+"""
 import mxnet as mx
 
 
@@ -52,12 +54,16 @@ class WeightedSoftmaxCrossEntropyLoss(mx.operator.CustomOp):
         pred = out_data[0]
         dx = pred - mx.nd.one_hot(label, 2)
         pos_cls_weight = self.positive_cls_weight
-        scale_factor = ((1 + label * pos_cls_weight) / pos_cls_weight).reshape((pred.shape[0],1))
+        scale_factor = ((1 + label * pos_cls_weight) / pos_cls_weight).reshape((pred.shape[0], 1))
         rescaled_dx = scale_factor * dx
         self.assign(in_grad[0], req[0], rescaled_dx)
 
+
 @mx.operator.register("weighted_softmax_ce_loss")
 class WeightedSoftmaxCrossEntropyLossProp(mx.operator.CustomOpProp):
+    """
+    Generate the loss function of Weighted Softmax CrossEntropy calculation
+    """
     def __init__(self, positive_cls_weight):
         super(WeightedSoftmaxCrossEntropyLossProp, self).__init__(True)
         self.positive_cls_weight = positive_cls_weight

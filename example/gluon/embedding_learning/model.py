@@ -15,10 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Implements embedding learning based on a Margin-based Loss with distance weighted sampling
+"""
 
+import numpy as np
 from mxnet import gluon
 from mxnet.gluon import nn, Block, HybridBlock
-import numpy as np
+
 
 class L2Normalization(HybridBlock):
     r"""Applies L2 Normalization to input.
@@ -58,6 +62,7 @@ def get_distance(F, x):
     # Adding identity to make sqrt work.
     return F.sqrt(distance_square + F.array(np.identity(n)))
 
+
 class DistanceWeightedSampling(HybridBlock):
     r"""Distance weighted sampling. See "sampling matters in deep embedding learning"
     paper for details.
@@ -91,6 +96,23 @@ class DistanceWeightedSampling(HybridBlock):
         super(DistanceWeightedSampling, self).__init__(**kwargs)
 
     def hybrid_forward(self, F, x):
+        """
+        Calculate distance weighted sampling
+        Parameters:
+        ----------
+        :param F: ndarray
+            a distance matrix given a matrix
+        :param x: ndarray
+            embeddings of the input batch.
+
+        Returns:
+        ---------
+        - a_indices: indices of anchors.
+        - x[a_indices]: sampled anchor embeddings.
+        - x[p_indices]: sampled positive embeddings.
+        - x[n_indices]: sampled negative embeddings.
+        - x: embeddings of the input batch.
+        """
         k = self.batch_k
         n, d = x.shape
 
@@ -205,6 +227,22 @@ class MarginLoss(gluon.loss.Loss):
         self._nu = nu
 
     def hybrid_forward(self, F, anchors, positives, negatives, beta_in, a_indices=None):
+        """
+        Calculate distance weighted sampling
+
+        Parameters:
+        ----------
+        :param F: a distance matrix given a matrix
+        :param anchors: sampled anchor embeddings.
+        :param positives: sampled positive embeddings.
+        :param negatives: sampled negative embeddings.
+        :param beta_in: class-specific betas.
+        :param a_indices: indices of anchors. Used to get class-specific beta.
+
+        Returns:
+        ----------
+        :return: The loss with weighting
+        """
         if a_indices is not None:
             # Jointly train class-specific beta.
             beta = beta_in.data()[a_indices]

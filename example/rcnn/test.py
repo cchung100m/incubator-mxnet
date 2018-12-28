@@ -15,13 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Create helper functions for testing ResNet and VGG16
+"""
 import argparse
 import ast
 import pprint
-
+import numpy as np
 import mxnet as mx
 from mxnet.module import Module
-import numpy as np
 from tqdm import tqdm
 
 from symdata.bbox import im_detect
@@ -31,8 +33,11 @@ from symnet.model import load_param, check_shape
 
 
 def test_net(sym, imdb, args):
+    """
+    Evaluate the model on testing dataset
+    """
     # print config
-    logger.info('called with args\n{}'.format(pprint.pformat(vars(args))))
+    logger.info('called with args\n%s', pprint.pformat(vars(args)))
 
     # setup context
     ctx = mx.gpu(args.gpu)
@@ -88,6 +93,9 @@ def test_net(sym, imdb, args):
 
 
 def parse_args():
+    """
+    Parse the arguments from user defined parameters
+    """
     parser = argparse.ArgumentParser(description='Test a Faster R-CNN network',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--network', type=str, default='vgg16', help='base network')
@@ -141,6 +149,9 @@ def get_coco(args):
 
 
 def get_vgg16_test(args):
+    """
+    Generate the testing on VGG16
+    """
     from symnet.symbol_vgg import get_vgg_test
     if not args.params:
         args.params = 'model/vgg16-0010.params'
@@ -177,6 +188,9 @@ def get_resnet50_test(args):
 
 
 def get_resnet101_test(args):
+    """
+    Generate the testing for ResNet
+    """
     from symnet.symbol_resnet import get_resnet_test
     if not args.params:
         args.params = 'model/resnet101-0010.params'

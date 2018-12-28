@@ -15,24 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This example is inspired by https://github.com/dasguptar/treelstm.pytorch
-import argparse, math, os, random
+"""
+Train Tree-Structured Long Short-Term Memory Networks and test network on the SICK dataset.
+
+This example is inspired by https://github.com/dasguptar/treelstm.pytorch
+"""
+import os
+import random
+import math
+import argparse
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 import logging
-logging.basicConfig(level=logging.INFO)
+
 import numpy as np
 from tqdm import tqdm
 
 import mxnet as mx
 from mxnet import gluon
-from mxnet.gluon import nn
 from mxnet import autograd as ag
 
 from tree_lstm import SimilarityTreeLSTM
 from dataset import Vocab, SICKDataIter
+
+logging.basicConfig(level=logging.INFO)
 
 parser = argparse.ArgumentParser(description='TreeLSTM for Sentence Similarity on Dependency Trees')
 parser.add_argument('--data', default='data/sick/',
@@ -76,7 +84,7 @@ if os.path.exists('dataset.pickle'):
 else:
     root_dir = opt.data
     segments = ['train', 'dev', 'test']
-    token_files = [os.path.join(root_dir, seg, '%s.toks'%tok)
+    token_files = [os.path.join(root_dir, seg, '%s.toks' % tok)
                    for tok in ['a', 'b']
                    for seg in segments]
 
@@ -87,10 +95,10 @@ else:
     with open('dataset.pickle', 'wb') as f:
         pickle.dump([train_iter, dev_iter, test_iter, vocab], f)
 
-logging.info('==> SICK vocabulary size : %d ' % vocab.size)
-logging.info('==> Size of train data   : %d ' % len(train_iter))
-logging.info('==> Size of dev data     : %d ' % len(dev_iter))
-logging.info('==> Size of test data    : %d ' % len(test_iter))
+logging.info('==> SICK vocabulary size : %d ', vocab.size)
+logging.info('==> Size of train data   : %d ', len(train_iter))
+logging.info('==> Size of dev data     : %d ', len(dev_iter))
+logging.info('==> Size of test data    : %d ', len(test_iter))
 
 # get network
 net = SimilarityTreeLSTM(sim_hidden_size, rnn_hidden_size, vocab.size, vocab.embed.shape[1], num_classes)
@@ -102,25 +110,40 @@ def to_target(x):
     target = np.zeros((1, num_classes))
     ceil = int(math.ceil(x))
     floor = int(math.floor(x))
-    if ceil==floor:
+    if ceil == floor:
         target[0][floor-1] = 1
     else:
         target[0][floor-1] = ceil - x
         target[0][ceil-1] = x - floor
     return mx.nd.array(target)
 
+
 def to_score(x):
     levels = mx.nd.arange(1, 6, ctx=x.context)
-    return [mx.nd.sum(levels*mx.nd.exp(x), axis=1).reshape((-1,1))]
+    return [mx.nd.sum(levels*mx.nd.exp(x), axis=1).reshape((-1, 1))]
+
 
 # when evaluating in validation mode, check and see if pearson-r is improved
 # if so, checkpoint and run evaluation on test dataset
 def test(ctx, data_iter, best, mode='validation', num_iter=-1):
+    """
+    Evaluate the accuracy of Tree-Structured Long Short-Term Memory Networks
+    :param ctx: list
+    :param data_iter: iterator
+    :param best: float
+        best value of accuracy
+    :param mode: string
+        Control to evaluate the model under validation/testing mode
+    :param num_iter: int
+        number of iterations
+    :return: float
+        best value of accuracy
+    """
     data_iter.reset()
     batches = len(data_iter)
     data_iter.set_context(ctx[0])
     preds = []
-    labels = [mx.nd.array(data_iter.labels, ctx=ctx[0]).reshape((-1,1))]
+    labels = [mx.nd.array(data_iter.labels, ctx=ctx[0]).reshape((-1, 1))]
     for _ in tqdm(range(batches), desc='Testing in {} mode'.format(mode)):
         l_tree, l_sent, r_tree, r_sent, label = data_iter.next()
         z = net(mx.nd, l_sent, r_sent, l_tree, r_tree)
@@ -137,14 +160,24 @@ def test(ctx, data_iter, best, mode='validation', num_iter=-1):
     if mode == 'validation' and num_iter >= 0:
         if test_r >= best:
             best = test_r
-            logging.info('New optimum found: {}. Checkpointing.'.format(best))
+            logging.info('New optimum found: %f. Checkpointing.', best)
             net.save_parameters('childsum_tree_lstm_{}.params'.format(num_iter))
             test(ctx, test_iter, -1, 'test')
-        return best
+    return best
 
 
 def train(epoch, ctx, train_data, dev_data):
+    """
+    Train Tree-Structured Long Short-Term Memory Networks
 
+    :param epoch: int
+        number of training epochs
+    :param ctx: list
+    :param train_data: nd.array
+        training data
+    :param dev_data: nd.array
+        validation data
+    """
     # initialization with context
     if isinstance(ctx, mx.Context):
         ctx = [ctx]
@@ -162,7 +195,7 @@ def train(epoch, ctx, train_data, dev_data):
         num_batches = len(train_data)
         # collect predictions and labels for evaluation metrics
         preds = []
-        labels = [mx.nd.array(train_data.labels, ctx=ctx[0]).reshape((-1,1))]
+        labels = [mx.nd.array(train_data.labels, ctx=ctx[0]).reshape((-1, 1))]
         for j in tqdm(range(num_batches), desc='Training epoch {}'.format(i)):
             # get next batch
             l_tree, l_sent, r_tree, r_sent, label = train_data.next()
@@ -185,7 +218,8 @@ def train(epoch, ctx, train_data, dev_data):
         names, values = metric.get()
         metric.reset()
         for name, acc in zip(names, values):
-            logging.info('training acc at epoch %d: %s=%f'%(i, name, acc))
+            logging.info('training acc at epoch %d: %s=%f', i, name, acc)
         best_r = test(ctx, dev_data, best_r, num_iter=i)
+
 
 train(opt.epochs, context, train_iter, dev_iter)

@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Demo Faster R-CNN in MXNet
+"""
 import argparse
 import ast
 import pprint
@@ -29,6 +31,9 @@ from symnet.model import load_param, check_shape
 
 
 def demo_net(sym, class_names, args):
+    """
+    Demo Faster R-CNN
+    """
     # print config
     print('called with args\n{}'.format(pprint.pformat(vars(args))))
 
@@ -86,6 +91,9 @@ def demo_net(sym, class_names, args):
 
 
 def parse_args():
+    """
+    Parse the arguments from user defined parameters
+    """
     parser = argparse.ArgumentParser(description='Demonstrate a Faster R-CNN network',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--network', type=str, default='vgg16', help='base network')
@@ -137,6 +145,9 @@ def get_coco_names(args):
 
 
 def get_vgg16_test(args):
+    """
+    Generate the testing on VGG16
+    """
     from symnet.symbol_vgg import get_vgg_test
     if not args.params:
         args.params = 'model/vgg16-0010.params'

@@ -14,15 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Create iterator module for Speech-To-Text bucketing
+"""
 from __future__ import print_function
-import mxnet as mx
-import sys
-sys.path.insert(0, "../../python")
 
 import bisect
 import random
+import sys
 import numpy as np
+import mxnet as mx
+sys.path.insert(0, "../../python")
 
 BATCH_SIZE = 1
 SEQ_LENGTH = 0
@@ -31,17 +33,20 @@ NUM_GPU = 1
 
 def get_label(buf, num_lable):
     ret = np.zeros(num_lable)
-    for i in range(len(buf)):
-        ret[i] = int(buf[i])
+    for i, element in enumerate(buf):
+        ret[i] = int(element)
     return ret
 
 
 class BucketSTTIter(mx.io.DataIter):
+    """
+    Generate Iterator of Speech-To-Text bucketing
+    """
     def __init__(self, count, datagen, batch_size, num_label, init_states, seq_length, width, height,
                  sort_by_duration=True,
                  is_bi_graphemes=False,
                  partition="train",
-                 buckets=[],
+                 buckets=None,
                  save_feature_as_csvfile=False
                  ):
         super(BucketSTTIter, self).__init__()
@@ -72,8 +77,8 @@ class BucketSTTIter(mx.io.DataIter):
             audio_paths = datagen.test_audio_paths
             texts = datagen.test_texts
         else:
-            raise Exception("Invalid partition to load metadata. "
-                            "Must be train/validation/test")
+            raise Exception("Invalid partition to load metadata. Must be train/validation/test")
+
         # if sortagrad
         if sort_by_duration:
             durations, audio_paths, texts = datagen.sort_by_duration(durations,
@@ -93,7 +98,8 @@ class BucketSTTIter(mx.io.DataIter):
             buckets = [i for i, j in enumerate(np.bincount(data_lengths))
                        if j >= batch_size]
         if len(buckets) == 0:
-            raise Exception('There is no valid buckets. It may occured by large batch_size for each buckets. max bincount:%d batch_size:%d' % (max(np.bincount(data_lengths)), batch_size))
+            raise Exception('There is no valid buckets. It may occured by large batch_size for each buckets. '
+                            'max bincount:%d batch_size:%d' % (max(np.bincount(data_lengths)), batch_size))
         buckets.sort()
         ndiscard = 0
         self.data = [[] for _ in buckets]
@@ -104,7 +110,7 @@ class BucketSTTIter(mx.io.DataIter):
                 continue
             self.data[buck].append(self.trainDataList[i])
         if ndiscard != 0:
-            print("WARNING: discarded %d sentences longer than the largest bucket."% ndiscard)
+            print("WARNING: discarded %d sentences longer than the largest bucket.", ndiscard)
 
         self.buckets = buckets
         self.nddata = []
@@ -116,11 +122,11 @@ class BucketSTTIter(mx.io.DataIter):
             self.idx.extend([(i, j) for j in range(0, len(buck) - batch_size + 1, batch_size)])
         self.curr_idx = 0
 
-        self.provide_data = [('data', (self.batch_size, self.default_bucket_key , width * height))] + init_states
+        self.provide_data = [('data', (self.batch_size, self.default_bucket_key, width * height))] + init_states
         self.provide_label = [('label', (self.batch_size, self.maxLabelLength))]
-        self.save_feature_as_csvfile=save_feature_as_csvfile
+        self.save_feature_as_csvfile = save_feature_as_csvfile
 
-        #self.reset()
+        # self.reset()
 
     def reset(self):
         """Resets the iterator to the beginning of the data."""

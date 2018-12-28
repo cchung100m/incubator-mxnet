@@ -14,17 +14,20 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions to assist the implementations of NLP and RNN models with MXNet
+"""
 import logging
-import warnings
-
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 from mxnet.module import Module
 from mxnet.model import load_checkpoint
 
-class CustomModule(Module):
 
+class CustomModule(Module):
+    """
+    Create specific class object within helper functions to data preparation and model helping
+    """
     def __init__(self, symbol, data_names=('data',), label_names=('softmax_label',),
                  logger=logging, context=mx.cpu(), work_load_list=None,
                  fixed_param_names=None, state_names=None, group2ctxs=None,
@@ -169,7 +172,6 @@ class CustomModule(Module):
             assert(len(grad_val) == num_ctx)
             for i in range(num_ctx):
                 grad_array_per_ctx[i].append(grad_val[i])
-        norm_vals = []
         for i in range(num_ctx):
             mx.gluon.utils.clip_global_norm(grad_array_per_ctx[i], max_norm)
 

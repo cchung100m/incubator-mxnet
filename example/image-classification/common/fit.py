@@ -23,12 +23,14 @@ import re
 import math
 import mxnet as mx
 
+
 def get_epoch_size(args, kv):
     return math.ceil(int(args.num_examples / kv.num_workers) / args.batch_size)
 
+
 def _get_lr_scheduler(args, kv):
     if 'lr_factor' not in args or args.lr_factor >= 1:
-        return (args.lr, None)
+        return args.lr, None
     epoch_size = get_epoch_size(args, kv)
     begin_epoch = args.load_epoch if args.load_epoch else 0
     if 'pow' in args.lr_step_epochs:
@@ -36,7 +38,7 @@ def _get_lr_scheduler(args, kv):
         max_up = args.num_epochs * epoch_size
         pwr = float(re.sub('pow[- ]*', '', args.lr_step_epochs))
         poly_sched = mx.lr_scheduler.PolyScheduler(max_up, lr, pwr)
-        return (lr, poly_sched)
+        return lr, poly_sched
     step_epochs = [int(l) for l in args.lr_step_epochs.split(',')]
     lr = args.lr
     for s in step_epochs:
@@ -52,11 +54,12 @@ def _get_lr_scheduler(args, kv):
         return (lr, mx.lr_scheduler.MultiFactorScheduler(step=steps, factor=args.lr_factor,
                                                          base_lr=args.lr))
     else:
-        return (lr, None)
+        return lr, None
+
 
 def _load_model(args, rank=0):
     if 'load_epoch' not in args or args.load_epoch is None:
-        return (None, None, None)
+        return None, None, None
     assert args.model_prefix is not None
     model_prefix = args.model_prefix
     if rank > 0 and os.path.exists("%s-%d-symbol.json" % (model_prefix, rank)):
@@ -64,7 +67,7 @@ def _load_model(args, rank=0):
     sym, arg_params, aux_params = mx.model.load_checkpoint(
         model_prefix, args.load_epoch)
     logging.info('Loaded model %s_%04d.params', model_prefix, args.load_epoch)
-    return (sym, arg_params, aux_params)
+    return sym, arg_params, aux_params
 
 
 def _save_model(args, rank=0):
@@ -119,7 +122,8 @@ def add_fit_args(parser):
     train.add_argument('--top-k', type=int, default=0,
                        help='report the top-k accuracy. 0 means no report.')
     train.add_argument('--loss', type=str, default='',
-                       help='show the cross-entropy or nll loss. ce strands for cross-entropy, nll-loss stands for likelihood loss')
+                       help='show the cross-entropy or nll loss. ce strands for cross-entropy, '
+                            'nll-loss stands for likelihood loss')
     train.add_argument('--test-io', type=int, default=0,
                        help='1 means test reading speed without training')
     train.add_argument('--dtype', type=str, default='float32',
@@ -173,7 +177,7 @@ def fit(args, network, data_loader, **kwargs):
     head = '%(asctime)-15s Node[' + str(kv.rank) + '] %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=head)
     logging.info('start with arguments %s', args)
-    
+
     epoch_size = get_epoch_size(args, kv)
 
     # data iterators
@@ -249,7 +253,7 @@ def fit(args, network, data_loader, **kwargs):
         macrobatch_size = args.macrobatch_size
         if macrobatch_size < args.batch_size * nworkers:
             macrobatch_size = args.batch_size * nworkers
-        #batch_scale = round(float(macrobatch_size) / args.batch_size / nworkers +0.4999)
+        # batch_scale = round(float(macrobatch_size) / args.batch_size / nworkers +0.4999)
         batch_scale = math.ceil(
             float(macrobatch_size) / args.batch_size / nworkers)
         optimizer_params['updates_per_epoch'] = epoch_size
@@ -301,8 +305,8 @@ def fit(args, network, data_loader, **kwargs):
                 if loss_type == 'nll':
                     loss_type = 'nll_loss'
                 if loss_type not in supported_loss:
-                    logging.warning(loss_type + ' is not an valid loss type, only cross-entropy or ' \
-                                    'negative likelihood loss is supported!')
+                    logging.warning('%s is not an valid loss type, only cross-entropy or '
+                                    'negative likelihood loss is supported!', loss_type)
                 else:
                     eval_metrics.append(mx.metric.create(loss_type))
         else:

@@ -14,9 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from dataset.imdb import Imdb
+"""
+Generate ConcatDB module for combining multiple dataset with same classes
+"""
 import random
+from dataset.imdb import Imdb
+
 
 class ConcatDB(Imdb):
     """
@@ -89,6 +92,8 @@ class ConcatDB(Imdb):
                 pos -= v.num_images
             else:
                 return (k, pos)
+
+        return None
 
     def image_path_from_index(self, index):
         """

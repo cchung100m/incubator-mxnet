@@ -14,49 +14,57 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Train Deep Structured Semantic Model (DSSM) for content-based recommendations
+"""
 import math
-import mxnet as mx
+import logging
 import numpy as np
+import mxnet as mx
 import mxnet.notebook.callback
 
-import logging
 logging.basicConfig(level=logging.DEBUG)
+
 
 def RMSE(label, pred):
     ret = 0.0
     n = 0.0
     pred = pred.flatten()
-    for i in range(len(label)):
-        ret += (label[i] - pred[i]) * (label[i] - pred[i])
+    for i, element in label:
+        ret += (element - pred[i]) * (element - pred[i])
         n += 1.0
     return math.sqrt(ret / n)
 
 
-def train(network, data_pair, num_epoch, learning_rate, optimizer='sgd', opt_args=None, ctx=[mx.gpu(0)]):
+def train(network, data_pair, num_epoch, learning_rate, optimizer='sgd', opt_args=None, ctx=None):
+    """
+    Train Deep Structured Semantic Model (DSSM)
+    """
     np.random.seed(123)  # Fix random seed for consistent demos
     mx.random.seed(123)  # Fix random seed for consistent demos
+    if ctx is None:
+        ctx = [mx.gpu(0)]
     if not opt_args:
         opt_args = {}
-    if optimizer=='sgd' and (not opt_args):
+    if optimizer == 'sgd' and (not opt_args):
         opt_args['momentum'] = 0.9
 
     model = mx.model.FeedForward(
-        ctx = ctx,
-        symbol = network,
-        num_epoch = num_epoch,
-        optimizer = optimizer,
-        learning_rate = learning_rate,
-        wd = 1e-4,
+        ctx=ctx,
+        symbol=network,
+        num_epoch=num_epoch,
+        optimizer=optimizer,
+        learning_rate=learning_rate,
+        wd=1e-4,
         **opt_args
     )
 
-    train, test = (data_pair)
+    train_df, test = data_pair
 
     lc = mxnet.notebook.callback.LiveLearningCurve('RMSE', 1)
-    model.fit(X = train,
-              eval_data = test,
-              eval_metric = RMSE,
+    model.fit(X=train_df,
+              eval_data=test,
+              eval_metric=RMSE,
               **mxnet.notebook.callback.args_wrapper(lc)
               )
     return lc

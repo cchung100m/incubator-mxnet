@@ -15,8 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Superresolution using an efficient sub-pixel convolutional neural network
+"""
+
 from __future__ import print_function
-import argparse, tarfile
+import argparse
+import tarfile
 import math
 import os
 import numpy as np
@@ -34,7 +39,8 @@ from data import ImagePairIter
 
 
 # CLI
-parser = argparse.ArgumentParser(description='Super-resolution using an efficient sub-pixel convolution neural network.')
+parser = argparse.ArgumentParser(description='Super-resolution using an efficient '
+                                             'sub-pixel convolution neural network.')
 parser.add_argument('--upscale_factor', type=int, default=3, help="super resolution upscale factor. default is 3.")
 parser.add_argument('--batch_size', type=int, default=4, help='training batch size, per device. default is 4.')
 parser.add_argument('--test_batch_size', type=int, default=100, help='test batch size')
@@ -54,7 +60,12 @@ color_flag = 0
 # get data
 dataset_path = "dataset"
 dataset_url = "http://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/BSDS300-images.tgz"
+
+
 def get_dataset(prefetch=False):
+    """
+    Download the BSDS300 images dataset and load it into dataframe
+    """
     image_path = os.path.join(dataset_path, "BSDS300/images")
 
     if not os.path.exists(image_path):
@@ -84,6 +95,7 @@ def get_dataset(prefetch=False):
 
     return [PrefetchingIter(i) for i in iters] if prefetch else iters
 
+
 train_data, val_data = get_dataset()
 
 mx.random.seed(opt.seed)
@@ -91,26 +103,40 @@ ctx = [mx.gpu(0)] if opt.use_gpu else [mx.cpu()]
 
 
 # define model
-def _rearrange(raw, F, upscale_factor):
+def _rearrange(raw, f, num_upscale_factor):
+    """
+    Reshape the images
+
+    :param raw: original image
+    :param f: nd.array
+    :param num_upscale_factor: super resolution upscale factor
+
+    :return:
+    ----------
+    PIL.Image: Rescaled image.
+    """
     # (N, C * r^2, H, W) -> (N, C, r^2, H, W)
-    splitted = F.reshape(raw, shape=(0, -4, -1, upscale_factor**2, 0, 0))
+    splitted = f.reshape(raw, shape=(0, -4, -1, num_upscale_factor**2, 0, 0))
     # (N, C, r^2, H, W) -> (N, C, r, r, H, W)
-    unflatten = F.reshape(splitted, shape=(0, 0, -4, upscale_factor, upscale_factor, 0, 0))
+    unflatten = f.reshape(splitted, shape=(0, 0, -4, num_upscale_factor, num_upscale_factor, 0, 0))
     # (N, C, r, r, H, W) -> (N, C, H, r, W, r)
-    swapped = F.transpose(unflatten, axes=(0, 1, 4, 2, 5, 3))
+    swapped = f.transpose(unflatten, axes=(0, 1, 4, 2, 5, 3))
     # (N, C, H, r, W, r) -> (N, C, H*r, W*r)
-    return F.reshape(swapped, shape=(0, 0, -3, -3))
+    return f.reshape(swapped, shape=(0, 0, -3, -3))
 
 
 class SuperResolutionNet(gluon.Block):
-    def __init__(self, upscale_factor):
+    """
+    efficient sub-pixel convolutional neural network
+    """
+    def __init__(self, num_upscale_factor):
         super(SuperResolutionNet, self).__init__()
         with self.name_scope():
             self.conv1 = nn.Conv2D(64, (5, 5), strides=(1, 1), padding=(2, 2))
             self.conv2 = nn.Conv2D(64, (3, 3), strides=(1, 1), padding=(1, 1))
             self.conv3 = nn.Conv2D(32, (3, 3), strides=(1, 1), padding=(1, 1))
-            self.conv4 = nn.Conv2D(upscale_factor ** 2, (3, 3), strides=(1, 1), padding=(1, 1))
-        self.upscale_factor = upscale_factor
+            self.conv4 = nn.Conv2D(num_upscale_factor ** 2, (3, 3), strides=(1, 1), padding=(1, 1))
+        self.upscale_factor = num_upscale_factor
 
     def forward(self, x):
         x = F.Activation(self.conv1(x), act_type='relu')
@@ -118,17 +144,25 @@ class SuperResolutionNet(gluon.Block):
         x = F.Activation(self.conv3(x), act_type='relu')
         return _rearrange(self.conv4(x), F, self.upscale_factor)
 
+
 net = SuperResolutionNet(upscale_factor)
 metric = mx.metric.MSE()
 
-def test(ctx):
+
+def test(content):
+    """
+    Test the efficient sub-pixel convolutional neural network
+    :param content: list
+    :return: int
+        validation avg psnr
+    """
     val_data.reset()
     avg_psnr = 0
     batches = 0
     for batch in val_data:
         batches += 1
-        data = gluon.utils.split_and_load(batch.data[0], ctx_list=ctx, batch_axis=0)
-        label = gluon.utils.split_and_load(batch.label[0], ctx_list=ctx, batch_axis=0)
+        data = gluon.utils.split_and_load(batch.data[0], ctx_list=content, batch_axis=0)
+        label = gluon.utils.split_and_load(batch.label[0], ctx_list=content, batch_axis=0)
         outputs = []
         for x in data:
             outputs.append(net(x))
@@ -136,23 +170,30 @@ def test(ctx):
         avg_psnr += 10 * math.log10(1/metric.get()[1])
         metric.reset()
     avg_psnr /= batches
-    print('validation avg psnr: %f'%avg_psnr)
+    print('validation avg psnr: %f' % avg_psnr)
 
 
-def train(epoch, ctx):
+def train(epoch, content):
+    """
+    Train the efficient sub-pixel convolutional neural network
+
+    :param epoch: number of epochs to train for
+    :param content: list
+    :return: the weights of efficient sub-pixel convolutional neural network
+    """
     if isinstance(ctx, mx.Context):
-        ctx = [ctx]
-    net.initialize(mx.init.Orthogonal(), ctx=ctx)
+        content = [content]
+    net.initialize(mx.init.Orthogonal(), ctx=content)
     # re-initialize conv4's weight to be Orthogonal
-    net.conv4.initialize(mx.init.Orthogonal(scale=1), force_reinit=True, ctx=ctx)
+    net.conv4.initialize(mx.init.Orthogonal(scale=1), force_reinit=True, ctx=content)
     trainer = gluon.Trainer(net.collect_params(), 'adam', {'learning_rate': opt.lr})
     loss = gluon.loss.L2Loss()
 
     for i in range(epoch):
         train_data.reset()
         for batch in train_data:
-            data = gluon.utils.split_and_load(batch.data[0], ctx_list=ctx, batch_axis=0)
-            label = gluon.utils.split_and_load(batch.label[0], ctx_list=ctx, batch_axis=0)
+            data = gluon.utils.split_and_load(batch.data[0], ctx_list=content, batch_axis=0)
+            label = gluon.utils.split_and_load(batch.label[0], ctx_list=content, batch_axis=0)
             outputs = []
             with ag.record():
                 for x, y in zip(data, label):
@@ -165,16 +206,22 @@ def train(epoch, ctx):
 
         name, acc = metric.get()
         metric.reset()
-        print('training mse at epoch %d: %s=%f'%(i, name, acc))
-        test(ctx)
+        print('training mse at epoch %d: %s=%f' % (i, name, acc))
+        test(content)
 
     net.save_parameters('superres.params')
 
-def resolve(ctx):
+
+def resolve(content):
+    """
+    Resolve the image through Superresolution using an efficient sub-pixel convolutional neural network
+    :param content: list
+    :return: Resolved image
+    """
     from PIL import Image
-    if isinstance(ctx, list):
-        ctx = [ctx[0]]
-    net.load_parameters('superres.params', ctx=ctx)
+    if isinstance(content, list):
+        content = [content[0]]
+    net.load_parameters('superres.params', ctx=content)
     img = Image.open(opt.resolve_img).convert('YCbCr')
     y, cb, cr = img.split()
     data = mx.nd.expand_dims(mx.nd.expand_dims(mx.nd.array(y), axis=0), axis=0)
@@ -187,6 +234,7 @@ def resolve(ctx):
     out_img = Image.merge('YCbCr', [out_img_y, out_img_cb, out_img_cr]).convert('RGB')
 
     out_img.save('resolved.png')
+
 
 if opt.resolve_img:
     resolve(ctx)

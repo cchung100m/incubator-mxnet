@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+SGD = (Minibatch) Stochastic Gradient Descent.
+A training algorithm that does stochastic gradient descent on minibatches of training examples.
+"""
+
+import logging
 from mxnet.ndarray import NDArray, topk, abs as NDabs
 from mxnet.optimizer import SGD, register
-import logging
 
 log = 'Sparsity Update:\t'
 
@@ -134,20 +139,29 @@ class SparseSGD(SGD):
             if epoch == 1:
                 self.masks_updated = False
                 if self.weight_sparsity is not None:
-                    logging.info(log + 'bias-sparsity={}, weight-sparsity={}'.format(self.bias_sparsity[0], self.weight_sparsity[0]))
+                    logging.info(log, 'bias-sparsity=%s, weight-sparsity=%s',
+                                 self.bias_sparsity[0],
+                                 self.weight_sparsity[0])
                 else:
-                    logging.info(log + 'bias-threshold={}, weight-threshold={}'.format(self.bias_threshold[0], self.weight_threshold[0]))
+                    logging.info(log, 'bias-threshold=%s, weight-threshold=%s',
+                                 self.bias_threshold[0],
+                                 self.weight_threshold[0])
+
             if self.pruning_switch_epoch[0] + 1 == epoch:
                 self.masks_updated = False
                 self.pruning_switch_epoch.pop(0)
                 if self.weight_sparsity is not None:
                     self.weight_sparsity.pop(0)
                     self.bias_sparsity.pop(0)
-                    logging.info(log + 'bias-sparsity={}, weight-sparsity={}'.format(self.bias_sparsity[0], self.weight_sparsity[0]))
+                    logging.info(log, 'bias-sparsity=%s, weight-sparsity=%s',
+                                 self.bias_sparsity[0],
+                                 self.weight_sparsity[0])
                 else:
                     self.weight_threshold.pop(0)
                     self.bias_threshold.pop(0)
-                    logging.info(log + 'bias-threshold={}, weight-threshold={}'.format(self.bias_threshold[0], self.weight_threshold[0]))
+                    logging.info(log, 'bias-threshold=%s, weight-threshold=%s',
+                                 self.bias_threshold[0],
+                                 self.weight_threshold[0])
 
         # update masks if needed
         if not self.masks_updated:
@@ -174,6 +188,20 @@ class SparseSGD(SGD):
         return not self.masks_updated
 
     def update(self, index, weight, grad, state):
+        """
+        Update the hyper-parameters for sparse training
+
+        Parameters:
+        ----------
+        :param index:  int
+            The index for mask.
+        :param weight: NDArray
+            weight matrix to keep the hyper-parameters of net
+        :param grad: NDArray
+            grad matrix to keep the hyper-parameters of net
+        :param state: NDArray
+            State matrix
+        """
         assert(isinstance(weight, NDArray))
         assert(isinstance(grad, NDArray))
 

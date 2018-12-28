@@ -17,17 +17,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import argparse
-import tools.find_mxnet
-import mxnet as mx
+"""
+Demonstrate Single Shot MultiBox Object Detector
+"""
 import os
 import sys
-from detect.detector import Detector
-from symbol.symbol_factory import get_symbol
-from dataset.cv2Iterator import CameraIterator
+import argparse
 import logging
+from symbol.symbol_factory import get_symbol
+import mxnet as mx
+from detect.detector import Detector
+from dataset.cv2Iterator import CameraIterator
 import cv2
+
 
 def get_detector(net, prefix, epoch, data_shape, mean_pixels, ctx, num_class,
                  nms_thresh=0.5, force_nms=True, nms_topk=400):
@@ -59,11 +61,15 @@ def get_detector(net, prefix, epoch, data_shape, mean_pixels, ctx, num_class,
         if isinstance(data_shape, tuple):
             data_shape = data_shape[0]
         net = get_symbol(net, data_shape, num_classes=num_class, nms_thresh=nms_thresh,
-            force_nms=force_nms, nms_topk=nms_topk)
+                         orce_nms=force_nms, nms_topk=nms_topk)
     detector = Detector(net, prefix, epoch, data_shape, mean_pixels, ctx=ctx)
     return detector
 
+
 def parse_args():
+    """
+    Parse the arguments
+    """
     parser = argparse.ArgumentParser(description='Single-shot detection network demo')
     parser.add_argument('--network', dest='network', type=str, default='resnet50',
                         help='which network to use')
@@ -114,6 +120,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def parse_class_names(class_names):
     """ parse # classes and class_names if applicable """
     if len(class_names) > 0:
@@ -129,6 +136,7 @@ def parse_class_names(class_names):
         raise RuntimeError("No valid class_name provided...")
     return class_names
 
+
 def parse_frame_resize(x):
     if not x:
         return x
@@ -138,6 +146,7 @@ def parse_frame_resize(x):
         x = x[0]
     return x
 
+
 def parse_data_shape(data_shape_str):
     """Parse string to tuple or int"""
     ds = data_shape_str.strip().split(',')
@@ -146,31 +155,39 @@ def parse_data_shape(data_shape_str):
     elif len(ds) == 2:
         data_shape = (int(ds[0]), int(ds[1]))
     else:
-        raise ValueError("Unexpected data_shape: %s", data_shape_str)
+        raise ValueError("Unexpected data_shape: %s" % data_shape_str)
     return data_shape
 
+
 def draw_detection(frame, det, class_names):
+    """
+    Draw detection to frame
+    """
     (klass, score, x0, y0, x1, y1) = det
     klass_name = class_names[int(klass)]
     h = frame.shape[0]
     w = frame.shape[1]
     # denormalize detections from [0,1] to the frame size
-    p0 = tuple(map(int, (x0*w,y0*h)))
-    p1 = tuple(map(int, (x1*w,y1*h)))
+    p0 = tuple(map(int, (x0*w, y0*h)))
+    p1 = tuple(map(int, (x1*w, y1*h)))
     logging.info("detection: %s %s", klass_name, score)
-    cv2.rectangle(frame, p0, p1, (0,0,255), 2)
+    cv2.rectangle(frame, p0, p1, (0, 0, 255), 2)
     # Where to draw the text, a few pixels above the top y coordinate
     tp0 = (p0[0], p0[1]-5)
     draw_text = "{} {}".format(klass_name, score)
-    cv2.putText(frame, draw_text, tp0, cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, (0,0,255))
+    cv2.putText(frame, draw_text, tp0, cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.5, (0, 0, 255))
 
 
 def network_path(prefix, network, data_shape):
     return "{}{}_{}".format(prefix, network, data_shape)
 
-def run_camera(args,ctx):
+
+def run_camera(args, ctx):
+    """
+    Execute camera to Single Shot MultiBox Object Detector
+    """
     assert args.batch_size == 1, "only batch size of 1 is supported"
-    logging.info("Detection threshold is {}".format(args.thresh))
+    logging.info("Detection threshold is %f", args.thresh)
     iter = CameraIterator(frame_resize=parse_frame_resize(args.frame_resize))
     class_names = parse_class_names(args.class_names)
     mean_pixels = (args.mean_r, args.mean_g, args.mean_b)
@@ -201,7 +218,11 @@ def run_camera(args,ctx):
                 draw_detection(frame, obj, class_names)
         cv2.imshow('frame', frame)
 
-def run_images(args,ctx):
+
+def run_images(args, ctx):
+    """
+    Run images to Single Shot MultiBox Object Detector
+    """
     # parse image list
     image_list = [i.strip() for i in args.images.split(',')]
     assert len(image_list) > 0, "No valid image specified to detect"
@@ -221,7 +242,11 @@ def run_images(args,ctx):
     detector.detect_and_visualize(image_list, args.dir, args.extension,
                                   class_names, args.thresh, args.show_timer)
 
+
 def main():
+    """
+    program entry point
+    """
     logging.getLogger().setLevel(logging.INFO)
     logging.basicConfig(format='%(asctime)-15s %(message)s')
     args = parse_args()
@@ -236,6 +261,6 @@ def main():
         run_images(args, ctx)
     return 0
 
+
 if __name__ == '__main__':
     sys.exit(main())
-

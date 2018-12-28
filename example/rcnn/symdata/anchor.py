@@ -14,18 +14,30 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate anchor (reference) windows of image
+"""
 import numpy as np
 from symdata.bbox import bbox_overlaps, bbox_transform
 
 
 class AnchorGenerator:
+    """
+    Generate helper functions for handling anchor class
+    """
     def __init__(self, feat_stride=16, anchor_scales=(8, 16, 32), anchor_ratios=(0.5, 1, 2)):
         self._num_anchors = len(anchor_scales) * len(anchor_ratios)
         self._feat_stride = feat_stride
         self._base_anchors = self._generate_base_anchors(feat_stride, np.array(anchor_scales), np.array(anchor_ratios))
 
     def generate(self, feat_height, feat_width):
+        """
+        Generate anchors
+
+        :param feat_height: int
+        :param feat_width: int
+        :return: nd.array
+        """
         shift_x = np.arange(0, feat_width) * self._feat_stride
         shift_y = np.arange(0, feat_height) * self._feat_stride
         shift_x, shift_y = np.meshgrid(shift_x, shift_y)
@@ -103,6 +115,9 @@ class AnchorGenerator:
 
 
 class AnchorSampler:
+    """
+    Sampling Anchors
+    """
     def __init__(self, allowed_border=0, batch_rois=256, fg_fraction=0.5, fg_overlap=0.7, bg_overlap=0.3):
         self._allowed_border = allowed_border
         self._num_batch = batch_rois
@@ -111,6 +126,9 @@ class AnchorSampler:
         self._bg_overlap = bg_overlap
 
     def assign(self, anchors, gt_boxes, im_height, im_width):
+        """
+        Generate labels, targets, and weights of bounding box
+        """
         num_anchors = anchors.shape[0]
 
         # filter out padded gt_boxes

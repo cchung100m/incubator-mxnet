@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate Q function for Deep Deterministic Policy Gradient
+"""
 from utils import define_qfunc
 import mxnet as mx
 
@@ -39,9 +41,7 @@ class ContinuousMLPQ(QFunc):
     for determnistic policy training.
     """
 
-    def __init__(
-        self,
-        env_spec):
+    def __init__(self, env_spec):
 
         super(ContinuousMLPQ, self).__init__(env_spec)
 
@@ -64,9 +64,10 @@ class ContinuousMLPQ(QFunc):
         self.loss = mx.symbol.MakeLoss(loss_exp, name="qfunc_loss")
         self.loss = mx.symbol.Group([self.loss, mx.symbol.BlockGrad(self.qval)])
 
-    def define_exe(self, ctx, init, updater, input_shapes=None, args=None,
-                    grad_req=None):
-
+    def define_exe(self, ctx, init, updater, input_shapes=None, args=None, grad_req=None):
+        """
+        Define executor, initializer and updater
+        """
         # define an executor, initializer and updater for batch version loss
         self.exe = self.loss.simple_bind(ctx=ctx, **input_shapes)
         self.arg_arrays = self.exe.arg_arrays
@@ -80,7 +81,9 @@ class ContinuousMLPQ(QFunc):
         self.updater = updater
 
     def update_params(self, obs, act, yval):
-
+        """
+        Update Q-Value Network
+        """
         self.arg_dict["obs"][:] = obs
         self.arg_dict["act"][:] = act
         self.arg_dict["yval"][:] = yval
@@ -99,5 +102,3 @@ class ContinuousMLPQ(QFunc):
         self.exe.forward(is_train=False)
 
         return self.exe.outputs[1].asnumpy()
-
-

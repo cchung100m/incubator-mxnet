@@ -14,10 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Data preparation module of the implementations of NLP and RNN models with MXNet
+"""
+import codecs
+import glob
+import random
+import logging
+import collections
 import numpy as np
-import codecs, glob, random, logging, collections
+import mxnet as mx
+
 
 class Vocabulary(object):
     """ A dictionary for words.
@@ -80,6 +87,7 @@ class Vocabulary(object):
         vocab.finalize()
         return vocab
 
+
 class Dataset(object):
     """ A dataset for truncated bptt with multiple sentences.
         Adapeted from @rafaljozefowicz's implementation.
@@ -94,7 +102,7 @@ class Dataset(object):
         return [s_id] + [self._vocab.get_id(word) for word in line.strip().split()] + [s_id]
 
     def _parse_file(self, file_name):
-        logging.debug("Processing file: %s" % file_name)
+        logging.debug("Processing file: %s", file_name)
         with codecs.open(file_name, "r", "utf-8") as f:
             lines = [line.strip() for line in f]
             if not self._shuffle:
@@ -156,6 +164,7 @@ class Dataset(object):
                     yield file_name
         for value in self._iterate(self._sentence_stream(file_stream()), batch_size, num_steps):
             yield value
+
 
 class MultiSentenceIter(mx.io.DataIter):
     """ An MXNet iterator that returns the a batch of sequence data and label each time.

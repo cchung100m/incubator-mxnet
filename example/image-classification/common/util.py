@@ -14,12 +14,23 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Helper functions for image classification
+"""
 import subprocess
 import os
 import errno
 
+
 def download_file(url, local_fname=None, force_write=False):
+    """
+    Download files which are dafault installed
+
+    :param url: string
+    :param local_fname: string
+    :param force_write: boolean
+    :return: string
+    """
     # requests is not default installed
     import requests
     if local_fname is None:
@@ -44,6 +55,7 @@ def download_file(url, local_fname=None, force_write=False):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
     return local_fname
+
 
 def get_gpus():
     """

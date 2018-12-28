@@ -21,6 +21,7 @@ import mxnet as mx
 import numba
 import logging
 
+
 # We use numba.jit to implement the loss gradient.
 @numba.jit
 def mc_hinge_grad(scores, labels):
@@ -38,6 +39,7 @@ def mc_hinge_grad(scores, labels):
         grad[i, ind_pred] += 1
 
     return grad
+
 
 if __name__ == '__main__':
     n_epoch = 10

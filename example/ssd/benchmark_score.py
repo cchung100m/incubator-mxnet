@@ -14,20 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions to score benchmark with evaluating Single Shot MultiBox Object Detector
+"""
 from __future__ import print_function
 import os
-import sys
 import argparse
-import importlib
-import mxnet as mx
 import time
-import logging
-
 from symbol.symbol_factory import get_symbol
-from symbol.symbol_factory import get_symbol_train
-from symbol import symbol_builder
-
+import mxnet as mx
 
 parser = argparse.ArgumentParser(description='MXNet SSD benchmark')
 parser.add_argument('--network', '-n', type=str, default='vgg16_reduced')
@@ -41,17 +36,19 @@ parser.add_argument('--deploy', dest='deploy', help='Load network from model',
 
 
 def get_data_shapes(batch_size):
-    image_shape = (3, 300, 300)
-    return [('data', (batch_size,)+image_shape)]
+    num_image_shape = (3, 300, 300)
+    return [('data', (batch_size,)+num_image_shape)]
+
 
 def get_label_shapes(batch_size):
     return [('label', (batch_size,) + (42, 6))]
 
+
 def get_data(batch_size):
     data_shapes = get_data_shapes(batch_size)
-    data = [mx.random.uniform(-1.0, 1.0, shape=shape, ctx=mx.cpu()) for _, shape in data_shapes]
-    batch = mx.io.DataBatch(data, [])
-    return batch
+    dataset = [mx.random.uniform(-1.0, 1.0, shape=shape, ctx=mx.cpu()) for _, shape in data_shapes]
+    num_batch = mx.io.DataBatch(dataset, [])
+    return num_batch
 
 
 if __name__ == '__main__':
@@ -68,7 +65,7 @@ if __name__ == '__main__':
         raise Exception(network + " is not supported")
 
     if image_shape not in supported_image_shapes:
-       raise Exception("Image shape should be either 300*300 or 512*512!")
+        raise Exception("Image shape should be either 300*300 or 512*512!")
 
     if b == 0:
         batch_sizes = [1, 2, 4, 8, 16, 32]
@@ -77,7 +74,7 @@ if __name__ == '__main__':
 
     data_shape = (3, image_shape, image_shape)
 
-    if args.deploy == True:
+    if args.deploy is True:
         prefix += network + '_' + str(data_shape[1]) + '-symbol.json'
         net = mx.sym.load(prefix)
     else:
@@ -86,17 +83,17 @@ if __name__ == '__main__':
     if not 'label' in net.list_arguments():
         label = mx.sym.Variable(name='label')
         net = mx.sym.Group([net, label])
-    
+
     num_batches = 100
     dry_run = 5   # use 5 iterations to warm up
-    
+
     for bs in batch_sizes:
         batch = get_data(bs)
         mod = mx.mod.Module(net, label_names=('label',), context=mx.cpu())
-        mod.bind(for_training = False,
-                 inputs_need_grad = False,
-                 data_shapes = get_data_shapes(bs),
-                 label_shapes = get_label_shapes(bs))
+        mod.bind(for_training=False,
+                 inputs_need_grad=False,
+                 data_shapes=get_data_shapes(bs),
+                 label_shapes=get_label_shapes(bs))
         mod.init_params(initializer=mx.init.Xavier(magnitude=2.))
 
         # get data

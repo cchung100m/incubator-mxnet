@@ -22,9 +22,8 @@ from collections import Counter
 import logging
 import math
 import random
-
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 
 
 def _load_data(name):

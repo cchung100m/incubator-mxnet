@@ -19,10 +19,15 @@
 # https://github.com/kazizzad/DCGAN-Gluon-MxNet/blob/master/MxnetDCGAN.ipynb
 # https://github.com/apache/incubator-mxnet/blob/master/example/gluon/dc_gan/dcgan.py
 
+"""
+helper functions for  Generative Adversarial Networks based on CIFAR10 dataset
+"""
+
 import math
 
 import numpy as np
 import imageio
+
 
 def save_image(data, epoch, image_size, batch_size, output_dir, padding=2):
     """ save image """

@@ -14,9 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Generate metric value for RPN and RCNN
+"""
 import numpy as np
+import mxnet as mx
 
 
 def get_names():
@@ -26,11 +28,17 @@ def get_names():
 
 
 class RPNAccMetric(mx.metric.EvalMetric):
+    """
+    Update Acc metric value for RPN
+    """
     def __init__(self):
         super(RPNAccMetric, self).__init__('RPNAcc')
         self.pred, self.label = get_names()
 
     def update(self, labels, preds):
+        """
+        Update metric
+        """
         pred = preds[self.pred.index('rpn_cls_prob')]
         label = labels[self.label.index('rpn_label')]
 
@@ -50,6 +58,9 @@ class RPNAccMetric(mx.metric.EvalMetric):
 
 
 class RCNNAccMetric(mx.metric.EvalMetric):
+    """
+    Update Acc metric value for RCNN
+    """
     def __init__(self):
         super(RCNNAccMetric, self).__init__('RCNNAcc')
         self.pred, self.label = get_names()
@@ -67,11 +78,17 @@ class RCNNAccMetric(mx.metric.EvalMetric):
 
 
 class RPNLogLossMetric(mx.metric.EvalMetric):
+    """
+    Update Log Loss value for RPN
+    """
     def __init__(self):
         super(RPNLogLossMetric, self).__init__('RPNLogLoss')
         self.pred, self.label = get_names()
 
     def update(self, labels, preds):
+        """
+        Update metric
+        """
         pred = preds[self.pred.index('rpn_cls_prob')]
         label = labels[self.label.index('rpn_label')]
 
@@ -94,11 +111,17 @@ class RPNLogLossMetric(mx.metric.EvalMetric):
 
 
 class RCNNLogLossMetric(mx.metric.EvalMetric):
+    """
+    Update Log Loss value for RCNN
+    """
     def __init__(self):
         super(RCNNLogLossMetric, self).__init__('RCNNLogLoss')
         self.pred, self.label = get_names()
 
     def update(self, labels, preds):
+        """
+        Update metric
+        """
         pred = preds[self.pred.index('rcnn_cls_prob')]
         label = preds[self.pred.index('rcnn_label')]
 
@@ -115,6 +138,9 @@ class RCNNLogLossMetric(mx.metric.EvalMetric):
 
 
 class RPNL1LossMetric(mx.metric.EvalMetric):
+    """
+    Update L1 Loss value for RPN
+    """
     def __init__(self):
         super(RPNL1LossMetric, self).__init__('RPNL1Loss')
         self.pred, self.label = get_names()
@@ -131,6 +157,9 @@ class RPNL1LossMetric(mx.metric.EvalMetric):
 
 
 class RCNNL1LossMetric(mx.metric.EvalMetric):
+    """
+    Update L1 Loss value for RCNN
+    """
     def __init__(self):
         super(RCNNL1LossMetric, self).__init__('RCNNL1Loss')
         self.pred, self.label = get_names()

@@ -14,25 +14,26 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-
-import mxnet as mx
+"""
+Provides suggested usage of SVRGModule high-level and intermediate-level API.
+"""
 import numpy as np
 from mxnet.contrib.svrg_optimization.svrg_module import SVRGModule
+import mxnet as mx
 
 
-def test_svrg_intermediate_level_api(args):
+def test_svrg_intermediate_level_api(arguments):
     """Demonstrates intermediate level SVRGModule API where the training process
     need to be explicitly defined. KVstore is not explicitly created.
 
     Parameters
     ----------
-    args: args
+    arguments: args
         Command line arguments
     """
-    num_epoch = args.epochs
-    batch_size = args.batch_size
-    update_freq = args.update_freq
+    num_epoch = arguments.epochs
+    batch_size = arguments.batch_size
+    update_freq = arguments.update_freq
 
     di, mod = create_network(batch_size, update_freq)
 
@@ -53,17 +54,17 @@ def test_svrg_intermediate_level_api(args):
         mod.logger.info('Epoch[%d] Train cost=%f', e, metrics.get()[1])
 
 
-def test_svrg_high_level_api(args):
+def test_svrg_high_level_api(arguments):
     """Demonstrates suggested usage of  high level SVRGModule API. KVStore is explicitly created.
 
     Parameters
     ----------
-    args: args
+    arguments: args
         Command line arguments
     """
-    num_epoch = args.epochs
-    batch_size = args.batch_size
-    update_freq = args.update_freq
+    num_epoch = arguments.epochs
+    batch_size = arguments.batch_size
+    update_freq = arguments.update_freq
 
     di, mod = create_network(batch_size, update_freq)
     mod.fit(di, eval_metric='mse', optimizer='sgd', optimizer_params=(('learning_rate', 0.025),), num_epoch=num_epoch,
@@ -107,6 +108,7 @@ def create_network(batch_size, update_freq):
     )
 
     return di, mod
+
 
 # run as a script
 if __name__ == "__main__":

@@ -14,11 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Create dataset helper functions module for Speech-To-Text bucketing
+"""
 from __future__ import absolute_import, division, print_function
 
 import json
 import random
+from multiprocessing import cpu_count, Process, Manager
 import numpy as np
 from stt_utils import calc_feat_dim, spectrogram_from_file
 
@@ -26,11 +29,14 @@ from config_util import generate_file_path
 from log_util import LogUtil
 from label_util import LabelUtil
 from stt_bi_graphemes_util import generate_bi_graphemes_label
-from multiprocessing import cpu_count, Process, Manager
 
 logUtil = LogUtil.getInstance()
 
+
 class DataGenerator(object):
+    """
+    Generate helper functions for loading data, normalizing data and generating mini-batch of data
+    """
     def __init__(self, save_dir, model_name, step=10, window=20, max_freq=8000, desc_file=None):
         """
         Params:
@@ -42,7 +48,7 @@ class DataGenerator(object):
                 labels and paths to the audio files. If this is None, then
                 load metadata right away
         """
-        #calc_feat_dim returns int(0.001*window*max_freq)+1
+        # calc_feat_dim returns int(0.001*window*max_freq)+1
         super(DataGenerator, self).__init__()
         # feat_dim=0.001*20*8000+1=161
         self.feat_dim = calc_feat_dim(window, max_freq)
@@ -53,7 +59,7 @@ class DataGenerator(object):
         self.max_input_length = 0
         self.max_length_list_in_batch = []
         # 1d 161 length of array filled with random value
-        #[0.0, 1.0)
+        # [0.0, 1.0)
         self.rng = random.Random()
         if desc_file is not None:
             self.load_metadata_from_desc_file(desc_file)
@@ -101,7 +107,7 @@ class DataGenerator(object):
                     audio_paths.append(spec['key'])
                     durations.append(float(spec['duration']))
                     texts.append(spec['text'])
-                except Exception as e:
+                except ValueError as e:
                     # Change to (KeyError, ValueError) or
                     # (KeyError,json.decoder.JSONDecodeError), depending on
                     # json module version
@@ -141,6 +147,9 @@ class DataGenerator(object):
         return (feature - self.feats_mean) / (self.feats_std + eps)
 
     def get_max_label_length(self, partition, is_bi_graphemes=False):
+        """
+        Get the maximum length of label data
+        """
         if partition == 'train':
             texts = self.train_texts + self.val_texts
         elif partition == 'test':
@@ -155,6 +164,9 @@ class DataGenerator(object):
         return self.max_label_length
 
     def get_max_seq_length(self, partition):
+        """
+        Get the maximum length of sequences
+        """
         if partition == 'train':
             audio_paths = self.train_audio_paths + self.val_audio_paths
             durations = self.train_durations + self.val_durations
@@ -183,7 +195,8 @@ class DataGenerator(object):
         # Features is a list of (timesteps, feature_dim) arrays
         # Calculate the features for each audio clip, as the log of the
         # Fourier Transform of the audio
-        features = [self.featurize(a, overwrite=overwrite, save_feature_as_csvfile=save_feature_as_csvfile) for a in audio_paths]
+        features = [self.featurize(a, overwrite=overwrite,
+                                   save_feature_as_csvfile=save_feature_as_csvfile) for a in audio_paths]
         input_lengths = [f.shape[0] for f in features]
         feature_dim = features[0].shape[1]
         mb_size = len(features)
@@ -224,6 +237,9 @@ class DataGenerator(object):
                             minibatch_size)
 
     def preprocess_sample_normalize(self, threadIndex, audio_paths, overwrite, return_dict):
+        """
+        Generate sample normalization batch of data
+        """
         if len(audio_paths) > 0:
             audio_clip = audio_paths[0]
             feat = self.featurize(audio_clip=audio_clip, overwrite=overwrite)
@@ -262,7 +278,8 @@ class DataGenerator(object):
         return_dict = manager.dict()
         jobs = []
         for threadIndex in range(cpu_count()):
-            proc = Process(target=self.preprocess_sample_normalize, args=(threadIndex, audio_paths, overwrite, return_dict))
+            proc = Process(target=self.preprocess_sample_normalize, args=(threadIndex, audio_paths, overwrite,
+                                                                          return_dict))
             jobs.append(proc)
             proc.start()
         for proc in jobs:

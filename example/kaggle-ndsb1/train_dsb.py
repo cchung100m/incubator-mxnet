@@ -1,4 +1,3 @@
-from __future__ import print_function
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,20 +15,23 @@ from __future__ import print_function
 # specific language governing permissions and limitations
 # under the License.
 
-import find_mxnet
-import mxnet as mx
-import logging
+"""
+Train DSD Dense-Sparse-Dense for Deep Neural Networks
+"""
+from __future__ import print_function
 import argparse
-import train_model
 import time
+import importlib
+import train_model
+import mxnet as mx
 
 # don't use -n and -s, which are resevered for the distributed training
 parser = argparse.ArgumentParser(description='train an image classifer on Kaggle Data Science Bowl 1')
 parser.add_argument('--network', type=str, default='dsb',
-                    help = 'the cnn to use')
+                    help='the cnn to use')
 parser.add_argument('--data-dir', type=str, default="data48/",
                     help='the input data directory')
-parser.add_argument('--save-model-prefix', type=str,default= "./models/sample_net",
+parser.add_argument('--save-model-prefix', type=str, default="./models/sample_net",
                     help='the prefix of the model to load/save')
 parser.add_argument('--lr', type=float, default=.01,
                     help='the initial learning rate')
@@ -54,49 +56,52 @@ parser.add_argument('--num-examples', type=int, default=20000,
 parser.add_argument('--num-classes', type=int, default=121,
                     help='the number of classes')
 parser.add_argument('--log-file', type=str,
-		    help='the name of log file')
+                    help='the name of log file')
 parser.add_argument('--log-dir', type=str, default="/tmp/",
                     help='directory of the log file')
 args = parser.parse_args()
 
 # network
-import importlib
 net = importlib.import_module('symbol_' + args.network).get_symbol(args.num_classes)
 
 
 # data
-def get_iterator(args, kv):
+def get_iterator(arguments, kv):
+    """
+    Get Iter of dataset
+    """
     data_shape = (3, 36, 36)
 
     # train data iterator
     train = mx.io.ImageRecordIter(
-        path_imgrec = args.data_dir + "tr.rec",
-        mean_r      = 128,
-        mean_g      = 128,
-        mean_b      = 128,
-        scale       = 0.0078125,
-        max_aspect_ratio = 0.35,
-        data_shape  = data_shape,
-        batch_size  = args.batch_size,
-        rand_crop   = True,
-        rand_mirror = True,
+        path_imgrec=arguments.data_dir + "tr.rec",
+        mean_r=128,
+        mean_g=128,
+        mean_b=128,
+        scale=0.0078125,
+        max_aspect_ratio=0.35,
+        data_shape=data_shape,
+        batch_size=arguments.batch_size,
+        rand_crop=True,
+        rand_mirror=True,
     )
 
     # validate data iterator
     val = mx.io.ImageRecordIter(
-        path_imgrec = args.data_dir + "va.rec",
-        mean_r      = 128,
-        mean_b      = 128,
-        mean_g      = 128,
-        scale       = 0.0078125,
-        rand_crop   = False,
-        rand_mirror = False,
-        data_shape  = data_shape,
-        batch_size  = args.batch_size)
+        path_imgrec=arguments.data_dir + "va.rec",
+        mean_r=128,
+        mean_b=128,
+        mean_g=128,
+        scale=0.0078125,
+        rand_crop=False,
+        rand_mirror=False,
+        data_shape=data_shape,
+        batch_size=arguments.batch_size)
 
-    return (train, val)
+    return train, val
+
 
 # train
-tic=time.time()
+tic = time.time()
 train_model.fit(args, net, get_iterator)
 print("time elapsed to train model", time.time()-tic)

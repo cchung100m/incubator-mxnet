@@ -15,11 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
+"""
+Generate DNN v4 for neural style translation
+"""
 # coding: utf-8
 
 import mxnet as mx
-import numpy as np
 
 
 def Conv(data, num_filter, kernel=(5, 5), pad=(2, 2), stride=(2, 2)):
@@ -32,13 +33,17 @@ def Conv(data, num_filter, kernel=(5, 5), pad=(2, 2), stride=(2, 2)):
 def Deconv(data, num_filter, kernel=(6, 6), pad=(2, 2), stride=(2, 2), out=False):
     sym = mx.sym.Deconvolution(data, num_filter=num_filter, kernel=kernel, stride=stride, pad=pad, no_bias=True)
     sym = mx.sym.BatchNorm(sym, fix_gamma=False)
-    if out == False:
+    if out is False:
         sym = mx.sym.LeakyReLU(sym, act_type="leaky")
     else:
         sym = mx.sym.Activation(sym, act_type="tanh")
     return sym
 
+
 def get_generator(prefix, im_hw):
+    """
+    Create the model for neural style translation
+    """
     data = mx.sym.Variable("%s_data" % prefix)
 
     conv1_1 = mx.sym.Convolution(data, num_filter=48, kernel=(5, 5), pad=(2, 2), no_bias=False)
@@ -76,7 +81,16 @@ def get_generator(prefix, im_hw):
     norm_out = 0.4 * mx.sym.Concat(*[r_ch, g_ch, b_ch]) + 0.6 * data
     return norm_out
 
+
 def get_module(prefix, dshape, ctx, is_train=True):
+    """
+    Select module to generate model for neural style translation
+
+    :param prefix: string
+    :param dshape: tuple of dimension
+    :param ctx: context
+    :param is_train: boolean
+    """
     sym = get_generator(prefix, dshape[-2:])
     mod = mx.mod.Module(symbol=sym,
                         data_names=("%s_data" % prefix,),
@@ -88,6 +102,3 @@ def get_module(prefix, dshape, ctx, is_train=True):
         mod.bind(data_shapes=[("%s_data" % prefix, dshape)], for_training=False, inputs_need_grad=False)
     mod.init_params(initializer=mx.init.Xavier(magnitude=2.))
     return mod
-
-
-

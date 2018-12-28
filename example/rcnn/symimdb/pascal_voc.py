@@ -14,7 +14,22 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""
+Main functions of real VOC includes:
+_load_gt_roidb
+_load_image_index
+_load_annotation
 
+General functions:
+_parse_voc_anno
+_evaluate_detections
+_write_pascal_results
+_do_python_eval
+voc_eval
+voc_ap
+
+roidb is a list of roi_rec
+"""
 import os
 import numpy as np
 
@@ -23,6 +38,9 @@ from .imdb import IMDB
 
 
 class PascalVOC(IMDB):
+    """
+    Create PascalVOC class helper functions for VOC dataset
+    """
     classes = ['__background__',  # always index 0
                'aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
@@ -56,7 +74,7 @@ class PascalVOC(IMDB):
 
         # get roidb
         self._roidb = self._get_cached('roidb', self._load_gt_roidb)
-        logger.info('%s num_images %d' % (self.name, self.num_images))
+        logger.info('%s num_images %d', self.name, self.num_images)
 
     def _load_gt_roidb(self):
         image_index = self._load_image_index()
@@ -122,15 +140,16 @@ class PascalVOC(IMDB):
             objects.append(obj_dict)
         return height, width, objects
 
-    def _evaluate_detections(self, detections, use_07_metric=True, **kargs):
+    def _evaluate_detections(self, detections, **kargs):
         self._write_pascal_results(detections)
+        use_07_metric = True
         self._do_python_eval(detections, use_07_metric)
 
     def _write_pascal_results(self, all_boxes):
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
-            logger.info('Writing %s VOC results file' % cls)
+            logger.info('Writing %s VOC results file', cls)
             filename = self._result_file_tmpl.format(cls)
             with open(filename, 'wt') as f:
                 for im_ind, roi_rec in enumerate(self.roidb):
@@ -185,6 +204,9 @@ class PascalVOC(IMDB):
 
     @staticmethod
     def voc_eval(class_anno, npos, image_ids, bbox, confidence, ovthresh=0.5, use_07_metric=False):
+        """
+        Evaluate the performance of model on voc dataset
+        """
         # sort by confidence
         if bbox.shape[0] > 0:
             sorted_inds = np.argsort(-confidence)
@@ -244,6 +266,9 @@ class PascalVOC(IMDB):
 
     @staticmethod
     def voc_ap(rec, prec, use_07_metric=False):
+        """
+        Helper function for handling voc dataset
+        """
         if use_07_metric:
             ap = 0.
             for t in np.arange(0., 1.1, 0.1):

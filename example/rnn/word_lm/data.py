@@ -14,13 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import os, gzip
-import sys
-import mxnet as mx
+"""
+Data preparation module of the implementations of multi-layer LSTM on Sherlock Holmes language modeling benchmark.
+"""
+import os
 import numpy as np
+import mxnet as mx
+
 
 class Dictionary(object):
+    """
+    Create Dictionary module to add word
+    """
     def __init__(self):
         self.word2idx = {}
         self.idx2word = []
@@ -38,7 +43,11 @@ class Dictionary(object):
     def __len__(self):
         return len(self.idx2word)
 
+
 class Corpus(object):
+    """
+    Create Corpus module to tokenize sentences
+    """
     def __init__(self, path):
         self.dictionary = Dictionary()
         self.train = self.tokenize(path + 'train.txt')
@@ -69,12 +78,14 @@ class Corpus(object):
 
         return mx.nd.array(ids, dtype='int32')
 
+
 def batchify(data, batch_size):
     """Reshape data into (num_example, batch_size)"""
     nbatch = data.shape[0] // batch_size
     data = data[:nbatch * batch_size]
     data = data.reshape((batch_size, nbatch)).T
     return data
+
 
 class CorpusIter(mx.io.DataIter):
     "An iterator that returns the a batch of sequence each time"

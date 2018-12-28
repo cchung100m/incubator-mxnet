@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Create helper functions for training ResNet and VGG16
+"""
 import argparse
 import ast
 import pprint
@@ -25,12 +27,16 @@ from mxnet.module import Module
 from symdata.loader import AnchorGenerator, AnchorSampler, AnchorLoader
 from symnet.logger import logger
 from symnet.model import load_param, infer_data_shape, check_shape, initialize_frcnn, get_fixed_params
-from symnet.metric import RPNAccMetric, RPNLogLossMetric, RPNL1LossMetric, RCNNAccMetric, RCNNLogLossMetric, RCNNL1LossMetric
+from symnet.metric import RPNAccMetric, RPNLogLossMetric, RPNL1LossMetric, RCNNAccMetric, \
+    RCNNLogLossMetric, RCNNL1LossMetric
 
 
 def train_net(sym, roidb, args):
+    """
+     Training the model on training dataset
+     """
     # print config
-    logger.info('called with args\n{}'.format(pprint.pformat(vars(args))))
+    logger.info('called with args\n%s', pprint.pformat(vars(args)))
 
     # setup multi-gpu
     ctx = [mx.gpu(int(i)) for i in args.gpus.split(',')]
@@ -61,8 +67,8 @@ def train_net(sym, roidb, args):
 
     # print shapes
     data_shape_dict, out_shape_dict = infer_data_shape(sym, data_shapes + label_shapes)
-    logger.info('max input shape\n%s' % pprint.pformat(data_shape_dict))
-    logger.info('max output shape\n%s' % pprint.pformat(out_shape_dict))
+    logger.info('max input shape\n%s', pprint.pformat(data_shape_dict))
+    logger.info('max output shape\n%s', pprint.pformat(out_shape_dict))
 
     # load and initialize params
     if args.resume:
@@ -76,7 +82,7 @@ def train_net(sym, roidb, args):
 
     # check fixed params
     fixed_param_names = get_fixed_params(sym, args.net_fixed_params)
-    logger.info('locking params\n%s' % pprint.pformat(fixed_param_names))
+    logger.info('locking params\n%s', pprint.pformat(fixed_param_names))
 
     # metric
     rpn_eval_metric = RPNAccMetric()
@@ -100,7 +106,7 @@ def train_net(sym, roidb, args):
     lr_epoch_diff = [epoch - args.start_epoch for epoch in lr_epoch if epoch > args.start_epoch]
     lr = base_lr * (lr_factor ** (len(lr_epoch) - len(lr_epoch_diff)))
     lr_iters = [int(epoch * len(roidb) / batch_size) for epoch in lr_epoch_diff]
-    logger.info('lr %f lr_epoch_diff %s lr_iters %s' % (lr, lr_epoch_diff, lr_iters))
+    logger.info('lr %f lr_epoch_diff %s lr_iters %s', lr, lr_epoch_diff, lr_iters)
     lr_scheduler = mx.lr_scheduler.MultiFactorScheduler(lr_iters, lr_factor)
     # optimizer
     optimizer_params = {'momentum': 0.9,
@@ -121,6 +127,9 @@ def train_net(sym, roidb, args):
 
 
 def parse_args():
+    """
+    Parse the arguments from user defined parameters
+    """
     parser = argparse.ArgumentParser(description='Train Faster R-CNN network',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--network', type=str, default='vgg16', help='base network')
@@ -173,6 +182,9 @@ def parse_args():
 
 
 def get_voc(args):
+    """
+    Load voc dataset
+    """
     from symimdb.pascal_voc import PascalVOC
     if not args.imageset:
         args.imageset = '2007_trainval'
@@ -188,6 +200,9 @@ def get_voc(args):
 
 
 def get_coco(args):
+    """
+    Load coco dataset
+    """
     from symimdb.coco import coco
     if not args.imageset:
         args.imageset = 'train2017'
@@ -204,6 +219,9 @@ def get_coco(args):
 
 
 def get_vgg16_train(args):
+    """
+    Generate model training for VGG16
+    """
     from symnet.symbol_vgg import get_vgg_train
     if not args.pretrained:
         args.pretrained = 'model/vgg16-0000.params'
@@ -226,6 +244,9 @@ def get_vgg16_train(args):
 
 
 def get_resnet50_train(args):
+    """
+    Generate model training for ResNet
+    """
     from symnet.symbol_resnet import get_resnet_train
     if not args.pretrained:
         args.pretrained = 'model/resnet-50-0000.params'
@@ -249,6 +270,9 @@ def get_resnet50_train(args):
 
 
 def get_resnet101_train(args):
+    """
+    Generate model training for ResNet
+    """
     from symnet.symbol_resnet import get_resnet_train
     if not args.pretrained:
         args.pretrained = 'model/resnet-101-0000.params'

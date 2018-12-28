@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate convolution layers to build Speech-To-Text (STT) models on DeepSpeech2 of Baidu
+"""
 import mxnet as mx
 
 
@@ -28,6 +30,9 @@ def conv(net,
          no_bias=False,
          name=None
          ):
+    """
+    Determine convolution layers with/without weight and bias
+    """
     # 2d convolution's input should have the shape of 4D (batch_size,1,seq_len,feat_dim)
     if weight is None or bias is None:
         # ex) filter_dimension = (41,11) , stride=(2,2)

@@ -15,16 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+module to generate Neural style transfer
+"""
 import time
-import random
 import os
-import mxnet as mx
 import numpy as np
-np.set_printoptions(precision=2)
-from PIL import Image
+import mxnet as mx
 
 from mxnet import autograd, gluon
-from mxnet.gluon import nn, Block, HybridBlock, Parameter, ParameterDict
+from mxnet.gluon import Parameter
 import mxnet.ndarray as F
 
 import net
@@ -32,7 +32,13 @@ import utils
 from option import Options
 import data
 
+np.set_printoptions(precision=2)
+
+
 def train(args):
+    """
+    Train Your Own MSG-Net Model with Vgg16 network
+    """
     np.random.seed(args.seed)
     if args.cuda:
         ctx = mx.gpu(0)
@@ -44,10 +50,9 @@ def train(args):
                                utils.ToTensor(ctx),
                                ])
     train_dataset = data.ImageFolder(args.dataset, transform)
-    train_loader = gluon.data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                         last_batch='discard')
+    train_loader = gluon.data.DataLoader(train_dataset, batch_size=args.batch_size, last_batch='discard')
     style_loader = utils.StyleLoader(args.style_folder, args.style_size, ctx=ctx)
-    print('len(style_loader):',style_loader.size())
+    print('len(style_loader):', style_loader.size())
     # models
     vgg = net.Vgg16()
     utils.init_vgg_params(vgg, 'models', ctx=ctx)
@@ -56,10 +61,9 @@ def train(args):
     if args.resume is not None:
         print('Resuming, initializing using weight from {}.'.format(args.resume))
         style_model.load_parameters(args.resume, ctx=ctx)
-    print('style_model:',style_model)
+    print('style_model:', style_model)
     # optimizer and loss
-    trainer = gluon.Trainer(style_model.collect_params(), 'adam',
-                            {'learning_rate': args.lr})
+    trainer = gluon.Trainer(style_model.collect_params(), 'adam', {'learning_rate': args.lr})
     mse_loss = gluon.loss.L2Loss()
 
     for e in range(args.epochs):
@@ -89,12 +93,11 @@ def train(args):
                 content_loss = 2 * args.content_weight * mse_loss(features_y[1], f_xc_c)
 
                 style_loss = 0.
-                for m in range(len(features_y)):
-                    gram_y = net.gram_matrix(features_y[m])
-                    _, C, _ = gram_style[m].shape
-                    gram_s = F.expand_dims(gram_style[m], 0).broadcast_to((args.batch_size, 1, C, C))
-                    style_loss = style_loss + 2 * args.style_weight * \
-                        mse_loss(gram_y, gram_s[:n_batch, :, :])
+                for i, element in features_y:
+                    gram_y = net.gram_matrix(element)
+                    _, C, _ = gram_style[i].shape
+                    gram_s = F.expand_dims(gram_style[i], 0).broadcast_to((args.batch_size, 1, C, C))
+                    style_loss = style_loss + 2 * args.style_weight * mse_loss(gram_y, gram_s[:n_batch, :, :])
 
                 total_loss = content_loss + style_loss
                 total_loss.backward()
@@ -108,37 +111,39 @@ def train(args):
             if (batch_id + 1) % args.log_interval == 0:
                 mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.3f}\tstyle: {:.3f}\ttotal: {:.3f}".format(
                     time.ctime(), e + 1, count, len(train_dataset),
-                                agg_content_loss.asnumpy()[0] / (batch_id + 1),
-                                agg_style_loss.asnumpy()[0] / (batch_id + 1),
-                                (agg_content_loss + agg_style_loss).asnumpy()[0] / (batch_id + 1)
+                    agg_content_loss.asnumpy()[0] / (batch_id + 1),
+                    agg_style_loss.asnumpy()[0] / (batch_id + 1),
+                    (agg_content_loss + agg_style_loss).asnumpy()[0] / (batch_id + 1)
                 )
                 print(mesg)
-
 
             if (batch_id + 1) % (4 * args.log_interval) == 0:
                 # save model
                 save_model_filename = "Epoch_" + str(e) + "iters_" + \
-                    str(count) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
-                    args.content_weight) + "_" + str(args.style_weight) + ".params"
+                                      str(count) + "_" + str(time.ctime()).replace(' ', '_') + "_" + \
+                                      str(args.content_weight) + "_" + str(args.style_weight) + ".params"
                 save_model_path = os.path.join(args.save_model_dir, save_model_filename)
                 style_model.save_parameters(save_model_path)
                 print("\nCheckpoint, trained model saved at", save_model_path)
 
     # save model
-    save_model_filename = "Final_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
-        args.content_weight) + "_" + str(args.style_weight) + ".params"
+    save_model_filename = "Final_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + \
+                          str(args.content_weight) + "_" + str(args.style_weight) + ".params"
     save_model_path = os.path.join(args.save_model_dir, save_model_filename)
     style_model.save_parameters(save_model_path)
     print("\nDone, trained model saved at", save_model_path)
 
 
 def evaluate(args):
+    """
+    Evaluate the accuracy of model
+    """
     if args.cuda:
         ctx = mx.gpu(0)
     else:
         ctx = mx.cpu(0)
     # images
-    content_image = utils.tensor_load_rgbimage(args.content_image,ctx, size=args.content_size, keep_asp=True)
+    content_image = utils.tensor_load_rgbimage(args.content_image, ctx, size=args.content_size, keep_asp=True)
     style_image = utils.tensor_load_rgbimage(args.style_image, ctx, size=args.style_size)
     style_image = utils.preprocess_batch(style_image)
     # model
@@ -159,7 +164,7 @@ def optimize(args):
     else:
         ctx = mx.cpu(0)
     # load the content and style target
-    content_image = utils.tensor_load_rgbimage(args.content_image,ctx, size=args.content_size, keep_asp=True)
+    content_image = utils.tensor_load_rgbimage(args.content_image, ctx, size=args.content_size, keep_asp=True)
     content_image = utils.subtract_imagenet_mean_preprocess_batch(content_image)
     style_image = utils.tensor_load_rgbimage(args.style_image, ctx, size=args.style_size)
     style_image = utils.subtract_imagenet_mean_preprocess_batch(style_image)
@@ -188,10 +193,12 @@ def optimize(args):
             features_y = vgg(output.data())
             content_loss = 2 * args.content_weight * mse_loss(features_y[1], f_xc_c)
             style_loss = 0.
-            for m in range(len(features_y)):
-                gram_y = net.gram_matrix(features_y[m])
-                gram_s = gram_style[m]
+
+            for i, element in enumerate(features_y):
+                gram_y = net.gram_matrix(element)
+                gram_s = gram_style[i]
                 style_loss = style_loss + 2 * args.style_weight * mse_loss(gram_y, gram_s)
+
             total_loss = content_loss + style_loss
             total_loss.backward()
 
@@ -205,6 +212,9 @@ def optimize(args):
 
 
 def main():
+    """
+    Program entry point
+    """
     # figure out the experiments type
     args = Options().parse()
 
@@ -228,4 +238,4 @@ def main():
 
 
 if __name__ == "__main__":
-   main()
+    main()

@@ -18,17 +18,22 @@
 """
 Reference:
 
-Krizhevsky, Alex, Ilya Sutskever, and Geoffrey E. Hinton. "Imagenet classification with deep convolutional neural networks." Advances in neural information processing systems. 2012.
+Krizhevsky, Alex, Ilya Sutskever, and Geoffrey E. Hinton. "Imagenet classification with
+deep convolutional neural networks." Advances in neural information processing systems. 2012.
 """
 import mxnet as mx
 
+
 def features(input_data, in_channels):
+    """
+    Generate layers of AlexNet for features
+    """
     # stage 1
     conv1 = mx.symbol.Convolution(
         data=input_data, kernel=(11, 11), stride=(4, 4), num_filter=96)
     relu1 = mx.symbol.Activation(data=conv1, act_type="relu")
     pool1 = mx.symbol.Pooling(
-        data=relu1, pool_type="max", kernel=(3, 3), stride=(2,2))
+        data=relu1, pool_type="max", kernel=(3, 3), stride=(2, 2))
     lrn1 = mx.symbol.LRN(data=pool1, alpha=0.0001, beta=0.75, knorm=1, nsize=5)
     # stage 2
     conv2 = mx.symbol.Convolution(

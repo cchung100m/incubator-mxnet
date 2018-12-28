@@ -14,18 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper function to add samples to memory
+"""
 from __future__ import print_function
 import numpy as np
 
 
 class ReplayMem(object):
-
-    def __init__(
-        self,
-        obs_dim,
-        act_dim,
-        memory_size=1000000):
+    """
+    Generate helper function of ReplayMem class
+    """
+    def __init__(self, obs_dim, act_dim, memory_size=1000000):
 
         # allocate space for memory cells
         self.obs_dim = obs_dim
@@ -50,7 +50,9 @@ class ReplayMem(object):
             self.size += 1
 
     def get_batch(self, batch_size):
-
+        """
+        accept indices as batch training
+        """
         assert self.size >= batch_size
 
         indices = np.zeros(batch_size, dtype="uint64")
@@ -62,7 +64,7 @@ class ReplayMem(object):
             # case where the last piece of memory is sampled
             # which does not have a successor state
             if idx == self.top:
-                    continue
+                continue
             transit_idx = (idx + 1) % self.memory_size
             indices[counter] = idx
             transit_indices[counter] = transit_idx
@@ -92,4 +94,3 @@ if __name__ == "__main__":
     print(memory.rwds)
     print(memory.ends)
     print(memory.get_batch(5))
-

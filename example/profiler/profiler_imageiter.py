@@ -15,8 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+using MXNet profiler to generate profiling results in json files.
+"""
+
 from __future__ import print_function
-import os
 # uncomment to set the number of worker threads.
 # os.environ["MXNET_CPU_WORKER_NTHREADS"] = "4"
 import time
@@ -24,7 +27,9 @@ import mxnet as mx
 
 
 def run_imageiter(path_rec, n, batch_size=32):
-
+    """
+    Run iterator of image
+    """
     data = mx.img.ImageIter(batch_size=batch_size,
                             data_shape=(3, 224, 224),
                             path_imgrec=path_rec,

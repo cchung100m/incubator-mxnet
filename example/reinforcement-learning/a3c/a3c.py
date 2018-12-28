@@ -15,18 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Implement the A3C algorithm in paper Asynchronous Methods for Deep Reinforcement Learning.
+"""
 from __future__ import print_function
-import mxnet as mx
-import numpy as np
-import rl_data
-import sym
+import time
 import argparse
 import logging
 import os
-import gym
 from datetime import datetime
-import time
-import sys
+import numpy as np
+import sym
+import rl_data
+import mxnet as mx
 try:
     from importlib import reload
 except ImportError:
@@ -56,7 +57,11 @@ parser.add_argument('--beta', type=float, default=0.08)
 
 args = parser.parse_args()
 
+
 def log_config(log_dir=None, log_file=None, prefix=None, rank=0):
+    """
+    set configuration for logger
+    """
     reload(logging)
     head = '%(asctime)-15s Node[' + str(rank) + '] %(message)s'
     if log_dir:
@@ -78,7 +83,11 @@ def log_config(log_dir=None, log_file=None, prefix=None, rank=0):
         logging.basicConfig(level=logging.DEBUG, format=head)
         logging.info('start with arguments %s', args)
 
+
 def train():
+    """
+    Train model through training dataset
+    """
     # kvstore
     kv = mx.kvstore.create(args.kv_store)
 
@@ -107,7 +116,8 @@ def train():
     # module
     dataiter = rl_data.GymDataIter('Breakout-v0', args.batch_size, args.input_length, web_viz=True)
     net = sym.get_symbol_atari(dataiter.act_dim)
-    module = mx.mod.Module(net, data_names=[d[0] for d in dataiter.provide_data], label_names=('policy_label', 'value_label'), context=devs)
+    module = mx.mod.Module(net, data_names=[d[0] for d in dataiter.provide_data],
+                           label_names=('policy_label', 'value_label'), context=devs)
     module.bind(data_shapes=dataiter.provide_data,
                 label_shapes=[('policy_label', (args.batch_size,)), ('value_label', (args.batch_size, 1))],
                 grad_req='add')
@@ -143,7 +153,6 @@ def train():
         if save_model_prefix:
             module.save_params('%s-%04d.params'%(save_model_prefix, epoch))
 
-
         for _ in range(int(epoch_size/args.t_max)):
             tic = time.time()
             # clear gradients
@@ -178,8 +187,8 @@ def train():
                 pi = module.get_outputs()[1]
                 h = -args.beta*(mx.nd.log(pi+1e-7)*pi)
                 out_acts = np.amax(pi.asnumpy(), 1)
-                out_acts=np.reshape(out_acts,(-1,1))
-                out_acts_tile=np.tile(-np.log(out_acts + 1e-7),(1, dataiter.act_dim))
+                out_acts = np.reshape(out_acts, (-1, 1))
+                out_acts_tile = np.tile(-np.log(out_acts + 1e-7), (1, dataiter.act_dim))
                 module.backward([mx.nd.array(out_acts_tile*adv), h])
 
                 print('pi', pi[0].asnumpy())
@@ -192,11 +201,16 @@ def train():
                 T += D[i].sum()
 
             module.update()
-            logging.info('fps: %f err: %f score: %f final: %f T: %f'%(args.batch_size/(time.time()-tic), err/args.t_max, score.mean(), final_score.mean(), T))
+            logging.info('fps: %f err: %f score: %f final: %f T: %f',
+                         args.batch_size/(time.time()-tic), err/args.t_max, score.mean(), final_score.mean(), T)
             print(score.squeeze())
             print(final_score.squeeze())
 
+
 def test():
+    """
+    Evaluate model through test dataset
+    """
     log_config()
 
     devs = mx.cpu() if args.gpus is None else [
@@ -206,7 +220,8 @@ def test():
     dataiter = rl_data.GymDataIter('scenes', args.batch_size, args.input_length, web_viz=True)
     print(dataiter.provide_data)
     net = sym.get_symbol_thor(dataiter.act_dim)
-    module = mx.mod.Module(net, data_names=[d[0] for d in dataiter.provide_data], label_names=('policy_label', 'value_label'), context=devs)
+    module = mx.mod.Module(net, data_names=[d[0] for d in dataiter.provide_data],
+                           label_names=('policy_label', 'value_label'), context=devs)
     module.bind(data_shapes=dataiter.provide_data,
                 label_shapes=[('policy_label', (args.batch_size,)), ('value_label', (args.batch_size, 1))],
                 for_training=False)
@@ -236,7 +251,7 @@ def test():
         score *= (1-done)
 
         if t % 100 == 0:
-            logging.info('n %d score: %f T: %f'%(t, R/T, T))
+            logging.info('n %d score: %f T: %f', t, R/T, T)
 
 
 if __name__ == '__main__':
@@ -244,5 +259,3 @@ if __name__ == '__main__':
         test()
     else:
         train()
-
-

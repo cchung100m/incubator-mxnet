@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Prepare data for the embedding learning based on a Margin-based Loss with distance weighted sampling
+"""
+
 import os
 import random
 
@@ -22,6 +26,7 @@ import numpy as np
 
 import mxnet as mx
 from mxnet import nd
+
 
 def transform(data, target_wd, target_ht, is_train, box):
     """Crop and normnalize an image nd array."""
@@ -151,6 +156,7 @@ class CUB200Iter(mx.io.DataIter):
                 self.test_count = 0
                 raise StopIteration
         return mx.io.DataBatch(data=[data], label=[labels])
+
 
 def cub200_iterator(data_path, batch_k, batch_size, data_shape):
     """Return training and testing iterator for the CUB200-2011 dataset."""

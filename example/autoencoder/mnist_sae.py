@@ -21,8 +21,8 @@ from __future__ import print_function
 import argparse
 import logging
 
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 import data
 from autoencoder import AutoEncoderModel
 

@@ -62,6 +62,9 @@ if __name__ == '__main__':
                                   vocab, buckets, batch_size, init_states)
 
     def sym_gen(seq_len):
+        """
+        Generate RNN with using low level symbol interface.
+        """
         data = mx.sym.Variable('data')
         label = mx.sym.Variable('softmax_label')
         embed = mx.sym.Embedding(data=data, input_dim=len(vocab),

@@ -15,14 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Setup header and extension modules for the implementations of NLP and RNN models with MXNet
+"""
 from distutils.core import setup, Extension
-from Cython.Build import cythonize
 import numpy
+from Cython.Build import cythonize
 
 extension_name = "log_uniform"
 sources = ["log_uniform.pyx", "LogUniformGenerator.cc"]
-setup(ext_modules = cythonize(Extension(extension_name,
-                                        sources=sources,
-                                        language="c++",
-                                        extra_compile_args=["-std=c++11"],
-                                        include_dirs=[numpy.get_include()])))
+setup(ext_modules=cythonize(Extension(extension_name, sources=sources, language="c++",
+                                      extra_compile_args=["-std=c++11"],
+                                      include_dirs=[numpy.get_include()])))

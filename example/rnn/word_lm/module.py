@@ -14,9 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Process the multi-layer LSTM on Sherlock Holmes language modeling benchmark.
+"""
 import mxnet as mx
-import logging
+
 
 class CustomStatefulModule():
     """CustomStatefulModule is a module that takes a custom loss symbol and state symbols.

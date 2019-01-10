@@ -14,11 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate multi-layer LSTM on Sherlock Holmes language modeling benchmark.
+"""
 import mxnet as mx
 
-def rnn(bptt, vocab_size, num_embed, nhid,
-        num_layers, dropout, batch_size, tied):
+
+def rnn(bptt, vocab_size, num_embed, nhid, num_layers, dropout, batch_size, tied):
+    """
+    Generate RNN
+    """
     # encoder
     data = mx.sym.Variable('data')
     weight = mx.sym.var("encoder_weight", init=mx.init.Uniform(0.1))
@@ -56,6 +61,7 @@ def rnn(bptt, vocab_size, num_embed, nhid,
         pred = mx.sym.FullyConnected(data=pred, num_hidden=vocab_size, name='pred')
     pred = mx.sym.Reshape(pred, shape=(-1, vocab_size))
     return pred, [mx.sym.stop_gradient(s) for s in states], state_names
+
 
 def softmax_ce_loss(pred):
     # softmax cross-entropy loss

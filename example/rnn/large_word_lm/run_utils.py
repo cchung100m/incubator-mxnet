@@ -14,10 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""
+Generate arguments parser and model evaluation module
+"""
+import argparse
+import time
+import logging
+import math
 
-import argparse, time, logging, math
 
 def get_parser():
+    """
+    Generate arguments parser
+    """
     parser = argparse.ArgumentParser(description='Language Model on GBW')
     parser.add_argument('--data', type=str,
                         default='/path/to/training-monolingual.tokenized.shuffled/*',
@@ -63,6 +72,7 @@ def get_parser():
                         help='scale factor for the gradients of the embedding layer')
     return parser
 
+
 def evaluate(mod, data_iter, epoch, log_interval):
     """ Run evaluation on cpu. """
     start = time.time()
@@ -80,11 +90,10 @@ def evaluate(mod, data_iter, epoch, log_interval):
         # don't include padding data in the test perplexity
         density += batch.data[1].mean()
         if (nbatch + 1) % log_interval == 0:
-            logging.info("Eval batch %d loss : %.7f" % (nbatch, (total_L / density).asscalar()))
+            logging.info("Eval batch %d loss : %.7f", nbatch, (total_L / density).asscalar())
     data_iter.reset()
     loss = (total_L / density).asscalar()
     ppl = math.exp(loss) if loss < 100 else 1e37
     end = time.time()
-    logging.info('Iter[%d]\t\t CE loss %.7f, ppl %.7f. Eval duration = %.2f seconds ' % \
-                 (epoch, loss, ppl, end - start))
+    logging.info('Iter[%d]\t\t CE loss %.7f, ppl %.7f. Eval duration = %.2f seconds ', epoch, loss, ppl, end - start)
     return loss

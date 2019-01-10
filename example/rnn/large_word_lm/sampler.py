@@ -14,15 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate LogUniformSampler module
+"""
 import math
-import os
-import numpy as np
-import mxnet as mx
 import log_uniform
 from mxnet import ndarray
 
-class LogUniformSampler():
+
+class LogUniformSampler:
+    """
+    Create helper functions for drawing samples from log uniform distribution and returns sampled candidates
+    """
     def __init__(self, range_max, num_sampled):
         self.range_max = range_max
         self.num_sampled = num_sampled

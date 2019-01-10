@@ -15,21 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-## based on https://github.com/dmlc/mxnet/issues/1302
-## Parses the model fit log file and generates a train/val vs epoch plot
-import matplotlib.pyplot as plt
-import numpy as np
+"""
+Parses the model fit log file and generates a train/val vs epoch plot
+based on https://github.com/dmlc/mxnet/issues/1302
+"""
+
 import re
 import argparse
+import numpy as np
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Parses log file and generates train/val curves')
-parser.add_argument('--log-file', type=str,default="log_tr_va",
+parser.add_argument('--log-file', type=str, default="log_tr_va",
                     help='the path of log file')
 args = parser.parse_args()
 
 
-TR_RE = re.compile('.*?]\sTrain-accuracy=([\d\.]+)')
-VA_RE = re.compile('.*?]\sValidation-accuracy=([\d\.]+)')
+TR_RE = re.compile('.*?]\\sTrain-accuracy=([\\d\\.]+)')
+VA_RE = re.compile('.*?]\\sValidation-accuracy=([\\d\\.]+)')
 
 log = open(args.log_file).read()
 
@@ -49,5 +52,5 @@ plt.plot(idx, log_va, 'o', linestyle='-', color="b",
 plt.legend(loc="best")
 plt.xticks(np.arange(min(idx), max(idx)+1, 5))
 plt.yticks(np.arange(0, 1, 0.2))
-plt.ylim([0,1])
+plt.ylim([0, 1])
 plt.show()

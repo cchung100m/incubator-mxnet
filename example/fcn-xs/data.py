@@ -17,9 +17,11 @@
 
 # pylint: skip-file
 """ file iterator for pasval voc 2012"""
-import mxnet as mx
+import sys
+import os
 import numpy as np
-import sys, os
+import mxnet as mx
+
 from mxnet.io import DataIter
 from PIL import Image
 
@@ -44,10 +46,10 @@ class FileIter(DataIter):
         the label name used in symbol softmax_label(default label name)
     """
     def __init__(self, root_dir, flist_name,
-                 rgb_mean = (117, 117, 117),
-                 cut_off_size = None,
-                 data_name = "data",
-                 label_name = "softmax_label"):
+                 rgb_mean=(117, 117, 117),
+                 cut_off_size=None,
+                 data_name="data",
+                 label_name="softmax_label"):
         super(FileIter, self).__init__()
         self.root_dir = root_dir
         self.flist_name = os.path.join(self.root_dir, flist_name)
@@ -81,20 +83,21 @@ class FileIter(DataIter):
             if min_hw > self.cut_off_size:
                 rand_start_max = int(np.random.uniform(0, max_hw - self.cut_off_size - 1))
                 rand_start_min = int(np.random.uniform(0, min_hw - self.cut_off_size - 1))
-                if img.shape[0] == max_hw :
-                    img = img[rand_start_max : rand_start_max + self.cut_off_size, rand_start_min : rand_start_min + self.cut_off_size]
-                    label = label[rand_start_max : rand_start_max + self.cut_off_size, rand_start_min : rand_start_min + self.cut_off_size]
-                else :
-                    img = img[rand_start_min : rand_start_min + self.cut_off_size, rand_start_max : rand_start_max + self.cut_off_size]
-                    label = label[rand_start_min : rand_start_min + self.cut_off_size, rand_start_max : rand_start_max + self.cut_off_size]
+                if img.shape[0] == max_hw:
+                    img = img[rand_start_max: rand_start_max + self.cut_off_size, rand_start_min: rand_start_min + self.cut_off_size]
+                    label = label[rand_start_max: rand_start_max + self.cut_off_size, rand_start_min: rand_start_min + self.cut_off_size]
+                else:
+                    img = img[rand_start_min: rand_start_min + self.cut_off_size, rand_start_max: rand_start_max + self.cut_off_size]
+                    label = label[rand_start_min: rand_start_min + self.cut_off_size, rand_start_max: rand_start_max + self.cut_off_size]
             elif max_hw > self.cut_off_size:
                 rand_start = int(np.random.uniform(0, max_hw - min_hw - 1))
-                if img.shape[0] == max_hw :
-                    img = img[rand_start : rand_start + min_hw, :]
-                    label = label[rand_start : rand_start + min_hw, :]
+                if img.shape[0] == max_hw:
+                    img = img[rand_start: rand_start + min_hw, :]
+                    label = label[rand_start: rand_start + min_hw, :]
                 else :
-                    img = img[:, rand_start : rand_start + min_hw]
-                    label = label[:, rand_start : rand_start + min_hw]
+                    img = img[:, rand_start: rand_start + min_hw]
+                    label = label[:, rand_start: rand_start + min_hw]
+
         reshaped_mean = self.mean.reshape(1, 1, 3)
         img = img - reshaped_mean
         img = np.swapaxes(img, 0, 2)

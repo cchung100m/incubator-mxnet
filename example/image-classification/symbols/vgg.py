@@ -21,20 +21,30 @@ Simonyan, Karen, and Andrew Zisserman. "Very deep convolutional networks for
 large-scale image recognition." arXiv preprint arXiv:1409.1556 (2014).
 """
 
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 
-def get_feature(internel_layer, layers, filters, batch_norm = False, **kwargs):
+
+def get_feature(internel_layer, layers, filters, batch_norm=False, **kwargs):
+    """
+    Construct Conv. layers
+    """
     for i, num in enumerate(layers):
         for j in range(num):
-            internel_layer = mx.sym.Convolution(data = internel_layer, kernel=(3, 3), pad=(1, 1), num_filter=filters[i], name="conv%s_%s" %(i + 1, j + 1))
+            internel_layer = mx.sym.Convolution(data=internel_layer, kernel=(3, 3), pad=(1, 1),
+                                                num_filter=filters[i], name="conv%s_%s" % (i + 1, j + 1))
             if batch_norm:
-                internel_layer = mx.symbol.BatchNorm(data=internel_layer, name="bn%s_%s" %(i + 1, j + 1))
-            internel_layer = mx.sym.Activation(data=internel_layer, act_type="relu", name="relu%s_%s" %(i + 1, j + 1))
-        internel_layer = mx.sym.Pooling(data=internel_layer, pool_type="max", kernel=(2, 2), stride=(2,2), name="pool%s" %(i + 1))
+                internel_layer = mx.symbol.BatchNorm(data=internel_layer, name="bn%s_%s" % (i + 1, j + 1))
+            internel_layer = mx.sym.Activation(data=internel_layer, act_type="relu", name="relu%s_%s" % (i + 1, j + 1))
+        internel_layer = mx.sym.Pooling(data=internel_layer, pool_type="max", kernel=(2, 2),
+                                        stride=(2, 2), name="pool%s" % (i + 1))
     return internel_layer
 
+
 def get_classifier(input_data, num_classes, **kwargs):
+    """
+    Construct output layer of VGG Net
+    """
     flatten = mx.sym.Flatten(data=input_data, name="flatten")
     fc6 = mx.sym.FullyConnected(data=flatten, num_hidden=4096, name="fc6")
     relu6 = mx.sym.Activation(data=fc6, act_type="relu", name="relu6")
@@ -44,6 +54,7 @@ def get_classifier(input_data, num_classes, **kwargs):
     drop7 = mx.sym.Dropout(data=relu7, p=0.5, name="drop7")
     fc8 = mx.sym.FullyConnected(data=drop7, num_hidden=num_classes, name="fc8")
     return fc8
+
 
 def get_symbol(num_classes, num_layers=11, batch_norm=False, dtype='float32', **kwargs):
     """

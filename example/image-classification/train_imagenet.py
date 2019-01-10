@@ -15,13 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
+"""
+Train image net
+"""
 import argparse
 import logging
+from common import data, fit
 logging.basicConfig(level=logging.DEBUG)
-from common import find_mxnet, data, fit
-from common.util import download_file
-import mxnet as mx
 
 def set_imagenet_aug(aug):
     # standard data augmentation setting for imagenet training
@@ -30,6 +30,7 @@ def set_imagenet_aug(aug):
     aug.set_defaults(min_random_area=0.08)
     aug.set_defaults(max_random_aspect_ratio=4./3., min_random_aspect_ratio=3./4.)
     aug.set_defaults(brightness=0.4, contrast=0.4, saturation=0.4, pca_noise=0.1)
+
 
 if __name__ == '__main__':
     # parse args
@@ -42,18 +43,18 @@ if __name__ == '__main__':
     # set_imagenet_aug(parser)
     parser.set_defaults(
         # network
-        network          = 'resnet',
-        num_layers       = 50,
+        network='resnet',
+        num_layers=50,
         # data
-        num_classes      = 1000,
-        num_examples     = 1281167,
-        image_shape      = '3,224,224',
-        min_random_scale = 1, # if input image has min size k, suggest to use
-                              # 256.0/x, e.g. 0.533 for 480
+        num_classes=1000,
+        num_examples=1281167,
+        image_shape='3,224,224',
+        min_random_scale=1,  # if input image has min size k, suggest to use
+                             # 256.0/x, e.g. 0.533 for 480
         # train
-        num_epochs       = 80,
-        lr_step_epochs   = '30,60',
-        dtype            = 'float32'
+        num_epochs=80,
+        lr_step_epochs='30,60',
+        dtype='float32'
     )
     args = parser.parse_args()
 

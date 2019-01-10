@@ -14,17 +14,20 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Deploy the trained model of Single Shot MultiBox Object Detector
+"""
 from __future__ import print_function
-import argparse
-import tools.find_mxnet
-import mxnet as mx
 import os
-import importlib
-import sys
+import argparse
 from symbol.symbol_factory import get_symbol
+import mxnet as mx
+
 
 def parse_args():
+    """
+    Parse the arguments
+    """
     parser = argparse.ArgumentParser(description='Convert a trained model to deploy model')
     parser.add_argument('--network', dest='network', type=str, default='vgg16_reduced',
                         help='which network to use')
@@ -42,14 +45,14 @@ def parse_args():
                         help='dont force non-maximum suppression on different class')
     parser.add_argument('--topk', dest='nms_topk', type=int, default=400,
                         help='apply nms only to top k detections based on scores.')
-    args = parser.parse_args()
-    return args
+    arguments = parser.parse_args()
+    return arguments
+
 
 if __name__ == '__main__':
     args = parse_args()
-    net = get_symbol(args.network, args.data_shape,
-        num_classes=args.num_classes, nms_thresh=args.nms_thresh,
-        force_suppress=args.force_nms, nms_topk=args.nms_topk)
+    net = get_symbol(args.network, args.data_shape, num_classes=args.num_classes,
+                     nms_thresh=args.nms_thresh, force_suppress=args.force_nms, nms_topk=args.nms_topk)
     if args.prefix.endswith('_'):
         prefix = args.prefix + args.network + '_' + str(args.data_shape)
     else:

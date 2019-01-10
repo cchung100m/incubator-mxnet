@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate base class for loading datasets as used in YOLO
+"""
 import os
 import numpy as np
 from imdb import Imdb
@@ -46,7 +48,7 @@ class YoloFormat(Imdb):
     """
     def __init__(self, name, classes, list_file, image_dir, label_dir, \
                  extension='.jpg', label_extension='.txt', shuffle=True):
-        if isinstance(classes, list) or isinstance(classes, tuple):
+        if isinstance(classes, (list, tuple)):
             num_classes = len(classes)
         elif isinstance(classes, str):
             with open(classes, 'r') as f:
@@ -67,7 +69,6 @@ class YoloFormat(Imdb):
         self.image_set_index = self._load_image_set_index(shuffle)
         self.num_images = len(self.image_set_index)
         self.labels = self._load_image_labels()
-
 
     def _load_image_set_index(self, shuffle):
         """

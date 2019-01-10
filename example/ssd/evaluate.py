@@ -14,15 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Evaluate trained model
+"""
 import argparse
-import tools.find_mxnet
-import mxnet as mx
 import os
-import sys
 from evaluate.evaluate_net import evaluate_net
+import mxnet as mx
+
 
 def parse_args():
+    """
+    Parse the arguments
+    """
     parser = argparse.ArgumentParser(description='Evaluate a network')
     parser.add_argument('--rec-path', dest='rec_path', help='which record file to use',
                         default=os.path.join(os.getcwd(), 'data', 'val.rec'), type=str)
@@ -69,8 +73,9 @@ def parse_args():
                         help='dont use PASCAL VOC 07 metric')
     parser.add_argument('--deploy', dest='deploy_net', help='Load network from model',
                         action='store_true', default=False)
-    args = parser.parse_args()
-    return args
+    arguments = parser.parse_args()
+    return arguments
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -83,9 +88,9 @@ if __name__ == '__main__':
     num_class = args.num_class
     if len(args.class_names) > 0:
         if os.path.isfile(args.class_names):
-                # try to open it to read class names
-                with open(args.class_names, 'r') as f:
-                    class_names = [l.strip() for l in f.readlines()]
+            # try to open it to read class names
+            with open(args.class_names, 'r') as f:
+                class_names = [l.strip() for l in f.readlines()]
         else:
             class_names = [c.strip() for c in args.class_names.split(',')]
         assert len(class_names) == num_class

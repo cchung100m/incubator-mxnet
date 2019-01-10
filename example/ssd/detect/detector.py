@@ -14,15 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-import numpy as np
+"""
+Generate SSD detector which hold a detection network and wraps detection API
+"""
+import logging
 from timeit import default_timer as timer
+import numpy as np
+import mxnet as mx
+from mxnet.io import DataBatch, DataDesc
 from dataset.testdb import TestDB
 from dataset.iterator import DetIter
-import logging
 import cv2
-from mxnet.io import DataBatch, DataDesc
 
 
 class Detector(object):
@@ -46,8 +48,7 @@ class Detector(object):
     ctx : mx.ctx
         device to use, if None, use mx.cpu() as default context
     """
-    def __init__(self, symbol, model_prefix, epoch, data_shape, mean_pixels, \
-                 batch_size=1, ctx=None):
+    def __init__(self, symbol, model_prefix, epoch, data_shape, mean_pixels, batch_size=1, ctx=None):
         self.ctx = ctx
         if self.ctx is None:
             self.ctx = mx.cpu()
@@ -61,7 +62,7 @@ class Detector(object):
         self.mod.bind(data_shapes=[('data', (batch_size, 3, data_shape[0], data_shape[1]))])
         self.mod.set_params(args, auxs)
         self.mean_pixels = mean_pixels
-        self.mean_pixels_nd = mx.nd.array(mean_pixels).reshape((3,1,1))
+        self.mean_pixels_nd = mx.nd.array(mean_pixels).reshape((3, 1, 1))
 
     def create_batch(self, frame):
         """
@@ -71,7 +72,7 @@ class Detector(object):
         frame_resize = mx.nd.array(cv2.resize(frame, (self.data_shape[0], self.data_shape[1])))
         #frame_resize = mx.img.imresize(frame, self.data_shape[0], self.data_shape[1], cv2.INTER_LINEAR)
         # Change dimensions from (w,h,channels) to (channels, w, h)
-        frame_t = mx.nd.transpose(frame_resize, axes=(2,0,1))
+        frame_t = mx.nd.transpose(frame_resize, axes=(2, 0, 1))
         frame_norm = frame_t - self.mean_pixels_nd
         # Add dimension for batch, results in (1,channels,w,h)
         batch_frame = [mx.nd.expand_dims(frame_norm, axis=0)]
@@ -141,7 +142,7 @@ class Detector(object):
                             is_train=False)
         return self.detect_iter(test_iter, show_timer)
 
-    def visualize_detection(self, img, dets, classes=[], thresh=0.6):
+    def visualize_detection(self, img, dets, classes=None, thresh=0.6):
         """
         visualize detections in one image
 
@@ -157,6 +158,9 @@ class Detector(object):
         thresh : float
             score threshold
         """
+        if classes is None:
+            classes = []
+
         import matplotlib.pyplot as plt
         import random
         plt.imshow(img)
@@ -182,10 +186,8 @@ class Detector(object):
             class_name = str(cls_id)
             if classes and len(classes) > cls_id:
                 class_name = classes[cls_id]
-            plt.gca().text(xmin, ymin - 2,
-                            '{:s} {:.3f}'.format(class_name, score),
-                            bbox=dict(facecolor=colors[cls_id], alpha=0.5),
-                                    fontsize=12, color='white')
+            plt.gca().text(xmin, ymin - 2, '{:s} {:.3f}'.format(class_name, score),
+                           bbox=dict(facecolor=colors[cls_id], alpha=0.5), fontsize=12, color='white')
         plt.show()
 
     @staticmethod
@@ -196,7 +198,7 @@ class Detector(object):
         :return:
         """
         class_idx = 0
-        assert(isinstance(detections, mx.nd.NDArray) or isinstance(detections, np.ndarray))
+        assert(isinstance(detections, (mx.nd.NDArray, np.ndarray)))
         detections_per_image = []
         # for each image
         for i in range(detections.shape[0]):
@@ -209,8 +211,7 @@ class Detector(object):
         logging.info("%d positive detections", len(result))
         return detections_per_image
 
-    def detect_and_visualize(self, im_list, root_dir=None, extension=None,
-                             classes=[], thresh=0.6, show_timer=False):
+    def detect_and_visualize(self, im_list, root_dir=None, extension=None, classes=None, thresh=0.6, show_timer=False):
         """
         wrapper for im_detect and visualize_detection
 
@@ -228,6 +229,9 @@ class Detector(object):
         ----------
 
         """
+        if classes is None:
+            classes = []
+
         dets = self.im_detect(im_list, root_dir, extension, show_timer=show_timer)
         if not isinstance(im_list, list):
             im_list = [im_list]

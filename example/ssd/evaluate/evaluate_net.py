@@ -14,22 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Run metric on Single Shot MultiBox Object Detector
+"""
 from __future__ import print_function
-import os
-import sys
-import importlib
+import time
+import logging
+from symbol.symbol_factory import get_symbol
 import mxnet as mx
+# from mxnet.contrib.quantization import *
 from dataset.iterator import DetRecordIter
 from config.config import cfg
 from evaluate.eval_metric import MApMetric, VOC07MApMetric
-import logging
-import time
-from symbol.symbol_factory import get_symbol
-from symbol import symbol_builder
-from mxnet.base import SymbolHandle, check_call, _LIB, mx_uint, c_str_array
-import ctypes
-from mxnet.contrib.quantization import *
+
 
 def evaluate_net(net, path_imgrec, num_classes, num_batch, mean_pixels, data_shape,
                  model_prefix, epoch, ctx=mx.cpu(), batch_size=32,
@@ -94,15 +91,13 @@ def evaluate_net(net, path_imgrec, num_classes, num_batch, mean_pixels, data_sha
     if net is None:
         net = load_net
     else:
-        net = get_symbol(net, data_shape[1], num_classes=num_classes,
-            nms_thresh=nms_thresh, force_suppress=force_nms)
+        net = get_symbol(net, data_shape[1], num_classes=num_classes, nms_thresh=nms_thresh, force_suppress=force_nms)
     if not 'label' in net.list_arguments():
         label = mx.sym.Variable(name='label')
         net = mx.sym.Group([net, label])
 
     # init module
-    mod = mx.mod.Module(net, label_names=('label',), logger=logger, context=ctx,
-        fixed_param_names=net.list_arguments())
+    mod = mx.mod.Module(net, label_names=('label',), logger=logger, context=ctx, fixed_param_names=net.list_arguments())
     mod.bind(data_shapes=eval_iter.provide_data, label_shapes=eval_iter.provide_label)
     mod.set_params(args, auxs, allow_missing=False, force_init=True)
 
@@ -126,7 +121,7 @@ def evaluate_net(net, path_imgrec, num_classes, num_batch, mean_pixels, data_sha
     results = mod.score(eval_iter, metric, num_batch=num_batch)
     speed = num / (time.time() - tic)
     if logger is not None:
-        logger.info('Finished inference with %d images' % num)
+        logger.info('Finished inference with %d images', num)
         logger.info('Finished with %f images per second', speed)
 
     for k, v in results:

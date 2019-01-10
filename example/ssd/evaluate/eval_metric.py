@@ -14,9 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Generate metric module for calculating mean AP for object detection task
+"""
 import numpy as np
+import mxnet as mx
+
 
 class MApMetric(mx.metric.EvalMetric):
     """
@@ -131,7 +134,7 @@ class MApMetric(mx.metric.EvalMetric):
                 continue
             pred = preds[self.pred_idx][i].asnumpy()
             # calculate for each class
-            while (pred.shape[0] > 0):
+            while pred.shape[0] > 0:
                 cid = int(pred[0, 0])
                 indices = np.where(pred[:, 0].astype(int) == cid)[0]
                 if cid < 0:
@@ -140,7 +143,7 @@ class MApMetric(mx.metric.EvalMetric):
                 dets = pred[indices]
                 pred = np.delete(pred, indices, axis=0)
                 # sort by score, desceding
-                dets[dets[:,1].argsort()[::-1]]
+                dets = dets[dets[:, 1].argsort()[::-1]]
                 records = np.hstack((dets[:, 1][:, np.newaxis], np.zeros((dets.shape[0], 1))))
                 # ground-truths
                 label_indices = np.where(label[:, 0].astype(int) == cid)[0]
@@ -154,9 +157,7 @@ class MApMetric(mx.metric.EvalMetric):
                         ovargmax = np.argmax(ious)
                         ovmax = ious[ovargmax]
                         if ovmax > self.ovp_thresh:
-                            if (not self.use_difficult and
-                                gts.shape[1] >= 6 and
-                                gts[ovargmax, 5] > 0):
+                            if not self.use_difficult and gts.shape[1] >= 6 and gts[ovargmax, 5] > 0:
                                 pass
                             else:
                                 if not found[ovargmax]:
@@ -166,13 +167,13 @@ class MApMetric(mx.metric.EvalMetric):
                                     # duplicate
                                     records[j, -1] = 2  # fp
                         else:
-                            records[j, -1] = 2 # fp
+                            records[j, -1] = 2  # fp
                 else:
                     # no gt, mark all fp
                     records[:, -1] = 2
 
                 # ground truth count
-                if (not self.use_difficult and gts.shape[1] >= 6):
+                if not self.use_difficult and gts.shape[1] >= 6:
                     gt_count = np.sum(gts[:, 5] < 1)
                 else:
                     gt_count = gts.shape[0]
@@ -185,7 +186,7 @@ class MApMetric(mx.metric.EvalMetric):
                     self._insert(cid, records, gt_count)
 
             # add missing class if not present in prediction
-            while (label.shape[0] > 0):
+            while label.shape[0] > 0:
                 cid = int(label[0, 0])
                 label_indices = np.where(label[:, 0].astype(int) == cid)[0]
                 label = np.delete(label, label_indices, axis=0)
@@ -214,7 +215,7 @@ class MApMetric(mx.metric.EvalMetric):
     def _recall_prec(self, record, count):
         """ get recall and precision from internal records """
         record = np.delete(record, np.where(record[:, 1].astype(int) == 0)[0], axis=0)
-        sorted_records = record[record[:,0].argsort()[::-1]]
+        sorted_records = record[record[:, 0].argsort()[::-1]]
         tp = np.cumsum(sorted_records[:, 1].astype(int) == 1)
         fp = np.cumsum(sorted_records[:, 1].astype(int) == 2)
         if count <= 0:

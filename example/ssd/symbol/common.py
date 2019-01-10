@@ -14,12 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Generate Wrapper functions to conv_act_layers and multibox_layers
+"""
 import numpy as np
+import mxnet as mx
 
-def conv_act_layer(from_layer, name, num_filter, kernel=(1,1), pad=(0,0), \
-    stride=(1,1), act_type="relu", use_batchnorm=False):
+
+def conv_act_layer(from_layer, name, num_filter, kernel=(1, 1), pad=(0, 0),
+                   stride=(1, 1), act_type="relu", use_batchnorm=False):
     """
     wrapper for a small Convolution group
 
@@ -46,16 +49,16 @@ def conv_act_layer(from_layer, name, num_filter, kernel=(1,1), pad=(0,0), \
     ----------
     (conv, relu) mx.Symbols
     """
-    conv = mx.symbol.Convolution(data=from_layer, kernel=kernel, pad=pad, \
-        stride=stride, num_filter=num_filter, name="{}_conv".format(name))
+    conv = mx.symbol.Convolution(data=from_layer, kernel=kernel, pad=pad,
+                                 stride=stride, num_filter=num_filter, name="{}_conv".format(name))
     if use_batchnorm:
         conv = mx.symbol.BatchNorm(data=conv, name="{}_bn".format(name))
-    relu = mx.symbol.Activation(data=conv, act_type=act_type, \
-        name="{}_{}".format(name, act_type))
+    relu = mx.symbol.Activation(data=conv, act_type=act_type, name="{}_{}".format(name, act_type))
     return relu
 
-def legacy_conv_act_layer(from_layer, name, num_filter, kernel=(1,1), pad=(0,0), \
-    stride=(1,1), act_type="relu", use_batchnorm=False):
+
+def legacy_conv_act_layer(from_layer, name, num_filter, kernel=(1, 1), pad=(0, 0), stride=(1, 1), act_type="relu",
+                          use_batchnorm=False):
     """
     wrapper for a small Convolution group
 
@@ -83,15 +86,14 @@ def legacy_conv_act_layer(from_layer, name, num_filter, kernel=(1,1), pad=(0,0),
     (conv, relu) mx.Symbols
     """
     assert not use_batchnorm, "batchnorm not yet supported"
-    bias = mx.symbol.Variable(name="conv{}_bias".format(name),
-        init=mx.init.Constant(0.0), attr={'__lr_mult__': '2.0'})
-    conv = mx.symbol.Convolution(data=from_layer, bias=bias, kernel=kernel, pad=pad, \
-        stride=stride, num_filter=num_filter, name="conv{}".format(name))
-    relu = mx.symbol.Activation(data=conv, act_type=act_type, \
-        name="{}{}".format(act_type, name))
+    bias = mx.symbol.Variable(name="conv{}_bias".format(name), init=mx.init.Constant(0.0), attr={'__lr_mult__': '2.0'})
+    conv = mx.symbol.Convolution(data=from_layer, bias=bias, kernel=kernel, pad=pad,
+                                 stride=stride, num_filter=num_filter, name="conv{}".format(name))
+    relu = mx.symbol.Activation(data=conv, act_type=act_type, name="{}{}".format(act_type, name))
     if use_batchnorm:
         relu = mx.symbol.BatchNorm(data=relu, name="bn{}".format(name))
     return conv, relu
+
 
 def multi_layer_feature(body, from_layers, num_filters, strides, pads, min_filter=128):
     """Wrapper function to extract features from base network, attaching extra
@@ -143,16 +145,16 @@ def multi_layer_feature(body, from_layers, num_filters, strides, pads, min_filte
             assert num_filter > 0
             layer = layers[-1]
             num_1x1 = max(min_filter, num_filter // 2)
-            conv_1x1 = conv_act_layer(layer, 'multi_feat_%d_conv_1x1' % (k),
-                num_1x1, kernel=(1, 1), pad=(0, 0), stride=(1, 1), act_type='relu')
-            conv_3x3 = conv_act_layer(conv_1x1, 'multi_feat_%d_conv_3x3' % (k),
-                num_filter, kernel=(3, 3), pad=(p, p), stride=(s, s), act_type='relu')
+            conv_1x1 = conv_act_layer(layer, 'multi_feat_%d_conv_1x1' % k,
+                                      num_1x1, kernel=(1, 1), pad=(0, 0), stride=(1, 1), act_type='relu')
+            conv_3x3 = conv_act_layer(conv_1x1, 'multi_feat_%d_conv_3x3' % k,
+                                      num_filter, kernel=(3, 3), pad=(p, p), stride=(s, s), act_type='relu')
             layers.append(conv_3x3)
     return layers
 
-def multibox_layer(from_layers, num_classes, sizes=[.2, .95],
-                    ratios=[1], normalization=-1, num_channels=[],
-                    clip=False, interm_layer=0, steps=[]):
+
+def multibox_layer(from_layers, num_classes, sizes=None, ratios=None, normalization=-1, num_channels=None,
+                   clip=False, interm_layer=0, steps=None):
     """
     the basic aggregation module for SSD detection. Takes in multiple layers,
     generate multiple object detection targets by customized layers
@@ -189,6 +191,15 @@ def multibox_layer(from_layers, num_classes, sizes=[.2, .95],
     cls_preds : classification prediction
     anchor_boxes : generated anchor boxes
     """
+    if sizes is None:
+        sizes = [.2, .95]
+    if ratios is None:
+        ratios = [1]
+    if num_channels is None:
+        num_channels = []
+    if steps is None:
+        steps = []
+
     assert len(from_layers) > 0, "from_layers must not be empty list"
     assert num_classes > 0, \
         "num_classes {} must be larger than 0".format(num_classes)
@@ -203,15 +214,15 @@ def multibox_layer(from_layers, num_classes, sizes=[.2, .95],
     assert len(sizes) > 0, "sizes must not be empty list"
     if len(sizes) == 2 and not isinstance(sizes[0], list):
         # provided size range, we need to compute the sizes for each layer
-         assert sizes[0] > 0 and sizes[0] < 1
-         assert sizes[1] > 0 and sizes[1] < 1 and sizes[1] > sizes[0]
-         tmp = np.linspace(sizes[0], sizes[1], num=(len(from_layers)-1))
-         # Ref for start_offset value:
-         # https://arxiv.org/abs/1512.02325
-         start_offset = 0.1
-         min_sizes = [start_offset] + tmp.tolist()
-         max_sizes = tmp.tolist() + [tmp[-1]+start_offset]
-         sizes = zip(min_sizes, max_sizes)
+        assert sizes[0] > 0 and sizes[0] < 1
+        assert sizes[1] > 0 and sizes[1] < 1 and sizes[1] > sizes[0]
+        tmp = np.linspace(sizes[0], sizes[1], num=(len(from_layers)-1))
+        # Ref for start_offset value:
+        # https://arxiv.org/abs/1512.02325
+        start_offset = 0.1
+        min_sizes = [start_offset] + tmp.tolist()
+        max_sizes = tmp.tolist() + [tmp[-1]+start_offset]
+        sizes = zip(min_sizes, max_sizes)
     assert len(sizes) == len(from_layers), \
         "sizes and from_layers must have same length"
 
@@ -234,19 +245,14 @@ def multibox_layer(from_layers, num_classes, sizes=[.2, .95],
         from_name = from_layer.name
         # normalize
         if normalization[k] > 0:
-            from_layer = mx.symbol.L2Normalization(data=from_layer, \
-                mode="channel", name="{}_norm".format(from_name))
-            scale = mx.symbol.Variable(name="{}_scale".format(from_name),
-                shape=(1, num_channels.pop(0), 1, 1),
-                init=mx.init.Constant(normalization[k]),
-                attr={'__wd_mult__': '0.1'})
+            from_layer = mx.symbol.L2Normalization(data=from_layer, mode="channel", name="{}_norm".format(from_name))
+            scale = mx.symbol.Variable(name="{}_scale".format(from_name), shape=(1, num_channels.pop(0), 1, 1),
+                                       init=mx.init.Constant(normalization[k]), attr={'__wd_mult__': '0.1'})
             from_layer = mx.symbol.broadcast_mul(lhs=scale, rhs=from_layer)
         if interm_layer > 0:
-            from_layer = mx.symbol.Convolution(data=from_layer, kernel=(3,3), \
-                stride=(1,1), pad=(1,1), num_filter=interm_layer, \
-                name="{}_inter_conv".format(from_name))
-            from_layer = mx.symbol.Activation(data=from_layer, act_type="relu", \
-                name="{}_inter_relu".format(from_name))
+            from_layer = mx.symbol.Convolution(data=from_layer, kernel=(3, 3), stride=(1, 1), pad=(1, 1),
+                                               num_filter=interm_layer, name="{}_inter_conv".format(from_name))
+            from_layer = mx.symbol.Activation(data=from_layer, act_type="relu", name="{}_inter_relu".format(from_name))
 
         # estimate number of anchors per location
         # here I follow the original version in caffe
@@ -257,27 +263,25 @@ def multibox_layer(from_layers, num_classes, sizes=[.2, .95],
         ratio = ratios[k]
         assert len(ratio) > 0, "must provide at least one ratio"
         ratio_str = "(" + ",".join([str(x) for x in ratio]) + ")"
-        num_anchors = len(size) -1 + len(ratio)
+        num_anchors = len(size)-1 + len(ratio)
 
         # create location prediction layer
         num_loc_pred = num_anchors * 4
-        bias = mx.symbol.Variable(name="{}_loc_pred_conv_bias".format(from_name),
-            init=mx.init.Constant(0.0), attr={'__lr_mult__': '2.0'})
-        loc_pred = mx.symbol.Convolution(data=from_layer, bias=bias, kernel=(3,3), \
-            stride=(1,1), pad=(1,1), num_filter=num_loc_pred, \
-            name="{}_loc_pred_conv".format(from_name))
-        loc_pred = mx.symbol.transpose(loc_pred, axes=(0,2,3,1))
+        bias = mx.symbol.Variable(name="{}_loc_pred_conv_bias".format(from_name), init=mx.init.Constant(0.0),
+                                  attr={'__lr_mult__': '2.0'})
+        loc_pred = mx.symbol.Convolution(data=from_layer, bias=bias, kernel=(3, 3), stride=(1, 1), pad=(1, 1),
+                                         num_filter=num_loc_pred, name="{}_loc_pred_conv".format(from_name))
+        loc_pred = mx.symbol.transpose(loc_pred, axes=(0, 2, 3, 1))
         loc_pred = mx.symbol.Flatten(data=loc_pred)
         loc_pred_layers.append(loc_pred)
 
         # create class prediction layer
         num_cls_pred = num_anchors * num_classes
         bias = mx.symbol.Variable(name="{}_cls_pred_conv_bias".format(from_name),
-            init=mx.init.Constant(0.0), attr={'__lr_mult__': '2.0'})
-        cls_pred = mx.symbol.Convolution(data=from_layer, bias=bias, kernel=(3,3), \
-            stride=(1,1), pad=(1,1), num_filter=num_cls_pred, \
-            name="{}_cls_pred_conv".format(from_name))
-        cls_pred = mx.symbol.transpose(cls_pred, axes=(0,2,3,1))
+                                  init=mx.init.Constant(0.0), attr={'__lr_mult__': '2.0'})
+        cls_pred = mx.symbol.Convolution(data=from_layer, bias=bias, kernel=(3, 3), stride=(1, 1), pad=(1, 1),
+                                         num_filter=num_cls_pred, name="{}_cls_pred_conv".format(from_name))
+        cls_pred = mx.symbol.transpose(cls_pred, axes=(0, 2, 3, 1))
         cls_pred = mx.symbol.Flatten(data=cls_pred)
         cls_pred_layers.append(cls_pred)
 
@@ -292,13 +296,10 @@ def multibox_layer(from_layers, num_classes, sizes=[.2, .95],
         anchors = mx.symbol.Flatten(data=anchors)
         anchor_layers.append(anchors)
 
-    loc_preds = mx.symbol.Concat(*loc_pred_layers, num_args=len(loc_pred_layers), \
-        dim=1, name="multibox_loc_pred")
-    cls_preds = mx.symbol.Concat(*cls_pred_layers, num_args=len(cls_pred_layers), \
-        dim=1)
+    loc_preds = mx.symbol.Concat(*loc_pred_layers, num_args=len(loc_pred_layers), dim=1, name="multibox_loc_pred")
+    cls_preds = mx.symbol.Concat(*cls_pred_layers, num_args=len(cls_pred_layers), dim=1)
     cls_preds = mx.symbol.Reshape(data=cls_preds, shape=(0, -1, num_classes))
     cls_preds = mx.symbol.transpose(cls_preds, axes=(0, 2, 1), name="multibox_cls_pred")
-    anchor_boxes = mx.symbol.Concat(*anchor_layers, \
-        num_args=len(anchor_layers), dim=1)
+    anchor_boxes = mx.symbol.Concat(*anchor_layers, num_args=len(anchor_layers), dim=1)
     anchor_boxes = mx.symbol.Reshape(data=anchor_boxes, shape=(0, -1, 4), name="multibox_anchors")
     return [loc_preds, cls_preds, anchor_boxes]

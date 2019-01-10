@@ -14,15 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import numpy as np
-import mxnet as mx, math
-import argparse, math
+"""
+Train multi-layer LSTM on Sherlock Holmes language modeling benchmark.
+"""
+import argparse
+import math
 import logging
+import mxnet as mx
+from mxnet.model import BatchEndParam
 from data import Corpus, CorpusIter
 from model import rnn, softmax_ce_loss
-from module import *
-from mxnet.model import BatchEndParam
+from module import CustomStatefulModule
+
 
 parser = argparse.ArgumentParser(description='Sherlock Holmes LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/sherlockholmes.',
@@ -55,19 +58,23 @@ args = parser.parse_args()
 
 best_loss = 9999
 
-def evaluate(valid_module, data_iter, epoch, mode, bptt, batch_size):
-    total_loss = 0.0
-    nbatch = 0
-    for batch in data_iter:
-        valid_module.forward(batch, is_train=False)
-        outputs = valid_module.get_loss()
-        total_loss += mx.nd.sum(outputs[0]).asscalar()
-        nbatch += 1
+
+def evaluate(valid_module, data_iter, num_epoch, mode, num_bptt, num_batch_size):
+    """
+    Evaluate multi-layer LSTM on Sherlock Holmes language modeling benchmark.
+    """
+    num_total_loss = 0.0
+    num_nbatch = 0
+    for num_batch in data_iter:
+        valid_module.forward(num_batch, is_train=False)
+        output = valid_module.get_loss()
+        num_total_loss += mx.nd.sum(output[0]).asscalar()
+        num_nbatch += 1
     data_iter.reset()
-    loss = total_loss / bptt / batch_size / nbatch
-    logging.info('Iter[%d] %s loss:\t%.7f, Perplexity: %.7f' % \
-                 (epoch, mode, loss, math.exp(loss)))
-    return loss
+    num_loss = num_total_loss / num_bptt / num_batch_size / num_nbatch
+    logging.info('Iter[%d] %s loss:\t%.7f, Perplexity: %.7f', num_epoch, mode, num_loss, math.exp(num_loss))
+    return num_loss
+
 
 if __name__ == '__main__':
     # args
@@ -120,8 +127,8 @@ if __name__ == '__main__':
             speedometer(speedometer_param)
             if nbatch % args.log_interval == 0 and nbatch > 0:
                 cur_loss = total_loss / bptt / batch_size / args.log_interval
-                logging.info('Iter[%d] Batch [%d]\tLoss:  %.7f,\tPerplexity:\t%.7f' % \
-                             (epoch, nbatch, cur_loss, math.exp(cur_loss)))
+                logging.info('Iter[%d] Batch [%d]\tLoss:  %.7f,\tPerplexity:\t%.7f',
+                             epoch, nbatch, cur_loss, math.exp(cur_loss))
                 total_loss = 0.0
             nbatch += 1
         # validation

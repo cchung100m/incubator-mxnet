@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions for building Speech-To-Text (STT) models
+"""
 import argparse
 import os
 import re
@@ -29,6 +31,9 @@ else:
 
 
 def parse_args(file_path):
+    """
+    Create arguments parser for handling configuration file and arch file
+    """
     default_cfg = configparser.ConfigParser()
     default_cfg.read(file_path)
 

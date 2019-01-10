@@ -14,9 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import os, logging
+"""
+Generate load module for loading movielens dataset.
+"""
+import os
+import logging
 import mxnet as mx
+
 
 def get_movielens_data(data_dir, prefix):
     if not os.path.exists(os.path.join(data_dir, "ml-10M100K")):
@@ -26,11 +30,12 @@ def get_movielens_data(data_dir, prefix):
         assert os.path.exists(os.path.join(data_dir, "ml-10M100K"))
         os.system("cd data/ml-10M100K; chmod +x allbut.pl; sh split_ratings.sh; cd -;")
 
+
 def get_movielens_iter(filename, batch_size):
     """Not particularly fast code to parse the text file and load into NDArrays.
     return two data iters, one for train, the other for validation.
     """
-    logging.info("Preparing data iterators for " + filename + " ... ")
+    logging.info("Preparing data iterators for %s  ... ", filename)
     user = []
     item = []
     score = []
@@ -51,8 +56,5 @@ def get_movielens_iter(filename, batch_size):
     # prepare data iters
     data_train = {'user': user, 'item': item}
     label_train = {'score': score}
-    iter_train = mx.io.NDArrayIter(data=data_train,label=label_train,
-                                   batch_size=batch_size, shuffle=True)
+    iter_train = mx.io.NDArrayIter(data=data_train, label=label_train, batch_size=batch_size, shuffle=True)
     return mx.io.PrefetchingIter(iter_train)
-
-

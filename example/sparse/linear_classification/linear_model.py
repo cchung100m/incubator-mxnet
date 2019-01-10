@@ -14,11 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate ML module for creating a linear model using the sparse feature in MXNet.
+"""
 import mxnet as mx
-from weighted_softmax_ce import *
+# from weighted_softmax_ce import *
+
 
 def linear_model(num_features, positive_cls_weight):
+    """
+    Create a linear model using the sparse feature in MXNet.
+    """
     # data with csr storage type to enable feeding data with CSRNDArray
     x = mx.symbol.Variable("data", stype='csr')
     norm_init = mx.initializer.Normal(sigma=0.01)

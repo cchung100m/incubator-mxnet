@@ -73,9 +73,9 @@ def prepare_data(args):
     else:
         raise Exception('network type should be one of the lstm,bilstm,gru,bigru')
 
-    if rnn_type == 'lstm' or rnn_type == 'bilstm':
+    if rnn_type in ('lstm', 'bilstm'):
         init_states = init_c + init_h
-    elif rnn_type == 'gru' or rnn_type == 'bigru':
+    elif rnn_type in ('gru', 'bigru'):
         init_states = init_h
     return init_states
 
@@ -123,8 +123,8 @@ def arch(args, seq_len=None):
                        no_bias=is_batchnorm,
                        name='conv1')
             if is_batchnorm:
-               # batch norm normalizes axis 1
-               net = batchnorm(net, name="conv1_batchnorm")
+                # batch norm normalizes axis 1
+                net = batchnorm(net, name="conv1_batchnorm")
 
             net = conv(net=net,
                        channels=channel_num,
@@ -186,7 +186,7 @@ def arch(args, seq_len=None):
                                 (args.config.getint('arch', 'n_classes') + 1))
             args.config.set('arch', 'max_t_count', str(seq_len_after_conv_layer2))
             return net
-        elif mode == 'load' or mode == 'predict':
+        elif mode in ('load', 'predict'):
             conv_layer1_filter_dim = \
                 tuple(json.loads(args.config.get("arch", "conv_layer1_filter_dim")))
             conv_layer1_stride = tuple(json.loads(args.config.get("arch", "conv_layer1_stride")))
@@ -202,8 +202,11 @@ def arch(args, seq_len=None):
                            / conv_layer2_stride[0])) + 1
 
             args.config.set('arch', 'max_t_count', str(seq_len_after_conv_layer2))
+            return None
         else:
             raise Exception('mode must be the one of the followings - train,predict,load')
+
+    return None
 
 
 class BucketingArch(object):

@@ -14,12 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+trains a factorization machine model using the criteo dataset.
+"""
+import argparse
 import mxnet as mx
-from metric import *
-from mxnet.test_utils import *
+# from mxnet.test_utils import *
+# from metric import *
 from model import factorization_machine_model
-import argparse, os
 
 parser = argparse.ArgumentParser(description="Run factorization machine with criteo dataset",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -73,8 +75,7 @@ if __name__ == '__main__':
     factor_size = args.factor_size
     num_features = args.input_size
     log_interval = args.log_interval
-    assert(args.data_train is not None and args.data_test is not None), \
-          "dataset for training or test is missing"
+    assert(args.data_train is not None and args.data_test is not None), "dataset for training or test is missing"
 
     def batch_row_ids(data_batch):
         """ Generate row ids based on the current mini-batch """
@@ -105,8 +106,7 @@ if __name__ == '__main__':
     mod = mx.mod.Module(symbol=model)
     mod.bind(data_shapes=train_data.provide_data, label_shapes=train_data.provide_label)
     mod.init_params()
-    optimizer_params=(('learning_rate', 1), ('wd', 1), ('beta1', 0.9),
-                      ('beta2', 0.999), ('epsilon', 1e-8))
+    optimizer_params = (('learning_rate', 1), ('wd', 1), ('beta1', 0.9), ('beta2', 0.999), ('epsilon', 1e-8))
     mod.init_optimizer(optimizer='adam', kvstore=kv, optimizer_params=optimizer_params)
 
     # metrics
@@ -131,16 +131,16 @@ if __name__ == '__main__':
                 # update training metric
                 mod.update_metric(metric, batch.label)
                 speedometer_param = mx.model.BatchEndParam(epoch=epoch, nbatch=nbatch,
-                                                            eval_metric=metric, locals=locals())
+                                                           eval_metric=metric, locals=locals())
                 speedometer(speedometer_param)
-            except:
+            except ValueError:
                 continue
 
         # pull all updated rows before validation
         mod.prepare(None, all_row_ids)
         # evaluate metric on validation dataset
         score = mod.score(eval_iter, ['log_loss'])
-        logging.info("epoch %d, eval log loss = %s" % (epoch, score[0][1]))
+        logging.info("epoch %d, eval log loss = %s", epoch, score[0][1])
         # reset the iterator for next pass of data
         train_iter.reset()
         eval_iter.reset()

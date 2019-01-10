@@ -14,10 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate Matrix Factorization w/ Sparse Embedding
+"""
 import mxnet as mx
 
+
 def matrix_fact_net(factor_size, num_hidden, max_user, max_item, dense):
+    """
+    Create Matrix Factorization
+    """
     # input
     user = mx.sym.Variable('user')
     item = mx.sym.Variable('item')

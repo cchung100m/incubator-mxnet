@@ -14,10 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""
+Generate loss function metrics for the factorization machine model.
 
-import mxnet as mx
-import numpy as np
+"""
 from operator import itemgetter
+import numpy as np
+import mxnet as mx
 
 @mx.metric.register
 @mx.metric.alias('log_loss')
@@ -91,12 +94,18 @@ class LogLossMetric(mx.metric.EvalMetric):
 @mx.metric.register
 @mx.metric.alias('auc')
 class AUCMetric(mx.metric.EvalMetric):
+    """
+    Generate AUC operator metric
+    """
     def __init__(self, eps=1e-12):
         super(AUCMetric, self).__init__(
             'auc')
         self.eps = eps
 
     def update(self, labels, preds):
+        """
+        Update factorization machine model with metrics
+        """
         mx.metric.check_label_shapes(labels, preds)
         label_weight = labels[0].asnumpy()
         preds = preds[0].asnumpy()
@@ -105,7 +114,7 @@ class AUCMetric(mx.metric.EvalMetric):
             tmp.append((label_weight[i], preds[i]))
         tmp = sorted(tmp, key=itemgetter(1), reverse=True)
         label_sum = label_weight.sum()
-        if label_sum == 0 or label_sum == label_weight.size:
+        if label_sum in (0, label_weight.size):
             raise Exception("AUC with one class is undefined")
 
         label_one_num = np.count_nonzero(label_weight)

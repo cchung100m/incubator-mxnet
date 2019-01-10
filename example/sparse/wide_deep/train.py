@@ -14,13 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-from mxnet.test_utils import *
-from data import get_uci_adult
-from model import wide_deep_model
+"""
+train wide and deep model with using he Census Income Data Set
+"""
 import argparse
 import os
+import mxnet as mx
+# from mxnet.test_utils import *
+from data import get_uci_adult
+from model import wide_deep_model
 
 
 parser = argparse.ArgumentParser(description="Run sparse wide and deep classification ",
@@ -68,7 +70,7 @@ if __name__ == '__main__':
     lr = args.lr
     ctx = mx.gpu(0) if args.cuda else mx.cpu()
 
-    # dataset    
+    # dataset
     data_dir = os.path.join(os.getcwd(), 'data')
     train_data = os.path.join(data_dir, ADULT['train'])
     val_data = os.path.join(data_dir, ADULT['test'])
@@ -86,9 +88,9 @@ if __name__ == '__main__':
     eval_data = mx.io.NDArrayIter({'csr_data': val_csr, 'dns_data': val_dns},
                                   {'softmax_label': val_label}, batch_size,
                                   shuffle=True, last_batch_handle='discard')
-    
+
     # module
-    mod = mx.mod.Module(symbol=model, context=ctx ,data_names=['csr_data', 'dns_data'],
+    mod = mx.mod.Module(symbol=model, context=ctx, data_names=['csr_data', 'dns_data'],
                         label_names=['softmax_label'])
     mod.bind(data_shapes=train_data.provide_data, label_shapes=train_data.provide_label)
     mod.init_params()
@@ -100,7 +102,7 @@ if __name__ == '__main__':
     speedometer = mx.callback.Speedometer(batch_size, log_interval)
 
     logging.info('Training started ...')
-    
+
     data_iter = iter(train_data)
     for epoch in range(num_epoch):
         nbatch = 0
@@ -117,10 +119,10 @@ if __name__ == '__main__':
             speedometer(speedometer_param)
         # evaluate metric on validation dataset
         score = mod.score(eval_data, ['acc'])
-        logging.info('epoch %d, accuracy = %s' % (epoch, score[0][1]))
-        
+        logging.info('epoch %d, accuracy = %s', epoch, score[0][1])
+
         mod.save_checkpoint("checkpoint", epoch, save_optimizer_states=True)
         # reset the iterator for next pass of data
         data_iter.reset()
-    
+
     logging.info('Training completed.')

@@ -14,17 +14,22 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import os, gzip
-import sys
+"""
+Generate load module for loading Avazu click-through-prediction dataset.
+"""
+import os
 import mxnet as mx
 
+
 def get_avazu_data(data_dir, data_name, url):
+    """
+    Get Avazu click-through-prediction dataset.
+    """
     if not os.path.isdir(data_dir):
         os.mkdir(data_dir)
     os.chdir(data_dir)
-    if (not os.path.exists(data_name)):
-        print("Dataset " + data_name + " not present. Downloading now ...") 
+    if not os.path.exists(data_name):
+        print("Dataset " + data_name + " not present. Downloading now ...")
         zippath = os.path.join(data_dir, data_name + ".bz2")
         mx.test_utils.download(url + data_name + ".bz2", zippath)
         os.system("bzip2 -d %r" % data_name + ".bz2")

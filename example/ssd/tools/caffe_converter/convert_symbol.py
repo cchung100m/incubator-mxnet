@@ -14,11 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Convert caffe model definition into Symbol
+"""
 from __future__ import print_function
 import argparse
 import re
 import caffe_parser
+
 
 def _get_input(proto):
     """Get input size
@@ -38,6 +41,7 @@ def _get_input(proto):
     # We assume the first bottom blob of first layer is the output from data layer
     input_name = layer[0].bottom[0]
     return input_name, input_dim, layer
+
 
 def _convert_conv_param(param):
     """
@@ -102,6 +106,7 @@ def _convert_conv_param(param):
 
     return param_string
 
+
 def _convert_pooling_param(param):
     """Convert the pooling layer parameter
     """
@@ -120,11 +125,13 @@ def _convert_pooling_param(param):
         raise ValueError("Unknown Pooling Method!")
     return param_string
 
+
 def _find_layer(layers, name):
     for layer in layers:
         if layer.name == name:
             return layer
     return None
+
 
 def _parse_proto(prototxt_fname):
     """Parse Caffe prototxt into symbol string
@@ -260,8 +267,7 @@ def _parse_proto(prototxt_fname):
             if conv_layer.type == 'Convolution':
                 scale_name = "%s_scale" % name
                 symbol_string += "%s=mx.sym.Variable(name='%s', shape=(1, %d, 1, 1), init=mx.init.Constant(%f))\n" % \
-                    (scale_name, scale_name, conv_layer.convolution_param.num_output,
-                    param.scale_filler.value)
+                    (scale_name, scale_name, conv_layer.convolution_param.num_output, param.scale_filler.value)
                 symbol_string += "%s=mx.symbol.L2Normalization(name='%s', data=%s, mode='channel')\n" %\
                     (name, name, mapping[layer.bottom[0]])
                 symbol_string += "%s=mx.symbol.broadcast_mul(lhs=%s, rhs=%s)\n" %\
@@ -310,7 +316,8 @@ def _parse_proto(prototxt_fname):
             finput_dimw = float(input_dim[3])
             step = '(%f, %f)' % (step_h / finput_dimh, step_w / finput_dimw)
             assert param.offset == 0.5, "currently only support offset = 0.5"
-            symbol_string += '%s = mx.contrib.symbol.MultiBoxPrior(%s, sizes=%s, ratios=%s, clip=%s, steps=%s, name="%s")\n' % \
+            symbol_string += '%s = mx.contrib.symbol.MultiBoxPrior(%s, sizes=%s, ratios=%s, clip=%s, steps=%s, ' \
+                             'name="%s")\n' % \
                 (name, mapping[layer.bottom[0]], sizes, ratios_string, clip, step, name)
             symbol_string += '%s = mx.symbol.Flatten(data=%s)\n' % (name, name)
             type_string = 'split'
@@ -318,7 +325,7 @@ def _parse_proto(prototxt_fname):
         if layer.type == 'DetectionOutput':
             bottom_order = [1, 0, 2]
             param = layer.detection_output_param
-            assert param.share_location == True
+            assert param.share_location is True
             assert param.background_label_id == 0
             nms_param = param.nms_param
             type_string = 'mx.contrib.symbol.MultiBoxDetection'
@@ -349,7 +356,8 @@ def _parse_proto(prototxt_fname):
                 if not bottom_order:
                     bottom_order = range(len(bottom))
                 symbol_string += "%s = %s(name='%s', *[%s] %s)\n" % \
-                                 (name, type_string, name, ','.join([mapping[bottom[x]] for x in bottom_order]), param_string)
+                                 (name, type_string, name, ','.join([mapping[bottom[x]] for x in bottom_order]),
+                                  param_string)
                 if layer.type == 'Concat' and layer.concat_param.axis == 2:
                     symbol_string += "%s = mx.symbol.Reshape(data=%s, shape=(0, -1, 4), name='%s')\n" %\
                         (name, name, name)
@@ -357,6 +365,7 @@ def _parse_proto(prototxt_fname):
             mapping[layer.top[j]] = name
         output_name = name
     return symbol_string, output_name, input_dim
+
 
 def convert_symbol(prototxt_fname):
     """Convert caffe model definition into Symbol
@@ -380,6 +389,7 @@ def convert_symbol(prototxt_fname):
     ret = _locals['ret']
     return ret, input_dim
 
+
 def main():
     parser = argparse.ArgumentParser(
         description='Convert caffe prototxt into Symbol')
@@ -389,6 +399,7 @@ def main():
 
     sym, _ = convert_symbol(args.prototxt)
     sym.save(args.output)
+
 
 if __name__ == '__main__':
     main()

@@ -17,16 +17,21 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Prepare the pascal_voc dataset and coco dataset
+"""
 from __future__ import print_function
-import sys, os
+import sys
+import os
 import argparse
 import subprocess
-curr_path = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(curr_path, '..'))
 from dataset.pascal_voc import PascalVoc
 from dataset.mscoco import Coco
 from dataset.concat_db import ConcatDB
+
+curr_path = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(curr_path, '..'))
+
 
 def load_pascal(image_set, year, devkit_path, shuffle=False):
     """
@@ -67,6 +72,7 @@ def load_pascal(image_set, year, devkit_path, shuffle=False):
     else:
         return imdbs[0]
 
+
 def load_coco(image_set, dirname, shuffle=False):
     """
     wrapper function for loading ms coco dataset
@@ -91,7 +97,11 @@ def load_coco(image_set, dirname, shuffle=False):
     else:
         return imdbs[0]
 
+
 def parse_args():
+    """
+    Parse the arguments
+    """
     parser = argparse.ArgumentParser(description='Prepare lists for dataset')
     parser.add_argument('--dataset', dest='dataset', help='dataset to use',
                         default='pascal', type=str)
@@ -110,8 +120,8 @@ def parse_args():
     parser.add_argument('--num-thread', dest='num_thread', type=int, default=1,
                         help='number of thread to use while runing im2rec.py')
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -128,10 +138,9 @@ if __name__ == '__main__':
 
     print("List file {} generated...".format(args.target))
 
-    cmd_arguments = ["python",
-                    os.path.join(curr_path, "../../../tools/im2rec.py"),
-                    os.path.abspath(args.target), os.path.abspath(args.root_path),
-                    "--pack-label", "--num-thread", str(args.num_thread)]
+    cmd_arguments = ["python", os.path.join(curr_path, "../../../tools/im2rec.py"),
+                     os.path.abspath(args.target), os.path.abspath(args.root_path),
+                     "--pack-label", "--num-thread", str(args.num_thread)]
 
     if not args.shuffle:
         cmd_arguments.append("--no-shuffle")

@@ -14,8 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate single-shot multi-box detection with VGG 16 layers ConvNet
+"""
 import mxnet as mx
+
 
 def get_symbol(num_classes=1000, **kwargs):
     """
@@ -80,8 +83,7 @@ def get_symbol(num_classes=1000, **kwargs):
         data=relu5_2, kernel=(3, 3), pad=(1, 1), num_filter=512, name="conv5_3")
     relu5_3 = mx.symbol.Activation(data=conv5_3, act_type="relu", name="relu5_3")
     pool5 = mx.symbol.Pooling(
-        data=relu5_3, pool_type="max", kernel=(3, 3), stride=(1, 1),
-        pad=(1,1), name="pool5")
+        data=relu5_3, pool_type="max", kernel=(3, 3), stride=(1, 1), pad=(1, 1), name="pool5")
     # group 6
     conv6 = mx.symbol.Convolution(
         data=pool5, kernel=(3, 3), pad=(6, 6), dilate=(6, 6),
@@ -94,10 +96,8 @@ def get_symbol(num_classes=1000, **kwargs):
     relu7 = mx.symbol.Activation(data=conv7, act_type="relu", name="relu7")
     # drop7 = mx.symbol.Dropout(data=relu7, p=0.5, name="drop7")
 
-    gpool = mx.symbol.Pooling(data=relu7, pool_type='avg', kernel=(7, 7),
-        global_pool=True, name='global_pool')
-    conv8 = mx.symbol.Convolution(data=gpool, num_filter=num_classes, kernel=(1, 1),
-        name='fc8')
+    gpool = mx.symbol.Pooling(data=relu7, pool_type='avg', kernel=(7, 7), global_pool=True, name='global_pool')
+    conv8 = mx.symbol.Convolution(data=gpool, num_filter=num_classes, kernel=(1, 1), name='fc8')
     flat = mx.symbol.Flatten(data=conv8)
     softmax = mx.symbol.SoftmaxOutput(data=flat, name='softmax')
     return softmax

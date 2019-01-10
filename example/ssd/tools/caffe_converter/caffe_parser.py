@@ -31,6 +31,7 @@ except ImportError:
 
 from google.protobuf import text_format
 
+
 def read_prototxt(fname):
     """Return a caffe_pb2.NetParameter object that defined in a prototxt file
     """
@@ -38,6 +39,7 @@ def read_prototxt(fname):
     with open(fname, 'r') as f:
         text_format.Merge(str(f.read()), proto)
     return proto
+
 
 def get_layers(proto):
     """Returns layers in a caffe_pb2.NetParameter object
@@ -48,6 +50,7 @@ def get_layers(proto):
         return proto.layers
     else:
         raise ValueError('Invalid proto file.')
+
 
 def read_caffemodel(prototxt_fname, caffemodel_fname):
     """Return a caffe_pb2.NetParameter object that defined in a binary
@@ -65,7 +68,11 @@ def read_caffemodel(prototxt_fname, caffemodel_fname):
             proto.ParseFromString(f.read())
         return (get_layers(proto), None)
 
+
 def layer_iter(layers, layer_names):
+    """
+    Create iterator to layers
+    """
     if use_caffe:
         for layer_idx, layer in enumerate(layers):
             layer_name = re.sub('[-/]', '_', layer_names[layer_idx])

@@ -14,9 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-from google.protobuf import text_format
-import numpy as np
+"""
+Generate parsing from protobuf format
+"""
 import caffe_parse.caffe_pb2 as caffe_pb2
 
 

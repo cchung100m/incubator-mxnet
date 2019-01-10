@@ -14,9 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import numpy as np
+"""
+Generate helper function to random sampling
+"""
 import math
+import numpy as np
+
 
 class RandSampler(object):
     """
@@ -77,15 +80,15 @@ class RandCropper(RandSampler):
                  min_overlap=0., max_trials=50, max_sample=1):
         super(RandCropper, self).__init__(max_trials, max_sample)
         assert min_scale <= max_scale, "min_scale must <= max_scale"
-        assert 0 < min_scale and min_scale <= 1, "min_scale must in (0, 1]"
-        assert 0 < max_scale and max_scale <= 1, "max_scale must in (0, 1]"
+        assert min_scale > 0 and min_scale <= 1, "min_scale must in (0, 1]"
+        assert max_scale > 0 and max_scale <= 1, "max_scale must in (0, 1]"
         self.min_scale = min_scale
         self.max_scale = max_scale
-        assert 0 < min_aspect_ratio and min_aspect_ratio <= 1, "min_ratio must in (0, 1]"
-        assert 1 <= max_aspect_ratio , "max_ratio must >= 1"
+        assert min_aspect_ratio > 0 and min_aspect_ratio <= 1, "min_ratio must in (0, 1]"
+        assert max_aspect_ratio >= 1, "max_ratio must >= 1"
         self.min_aspect_ratio = min_aspect_ratio
         self.max_aspect_ratio = max_aspect_ratio
-        assert 0 <= min_overlap and min_overlap <= 1, "min_overlap must in [0,1]"
+        assert min_overlap >= 0 and min_overlap <= 1, "min_overlap must in [0,1]"
         self.min_overlap = min_overlap
 
         self.config = {'gt_constraint' : 'center'}
@@ -137,9 +140,8 @@ class RandCropper(RandSampler):
                 if not new_gt_boxes:
                     continue
                 new_gt_boxes = np.array(new_gt_boxes)
-                label = np.lib.pad(new_gt_boxes,
-                    ((0, label.shape[0]-new_gt_boxes.shape[0]), (0,0)), \
-                    'constant', constant_values=(-1, -1))
+                label = np.lib.pad(new_gt_boxes, ((0, label.shape[0]-new_gt_boxes.shape[0]), (0, 0)), 'constant',
+                                   constant_values=(-1, -1))
                 samples.append((rand_box, label))
                 count += 1
         return samples
@@ -186,8 +188,7 @@ class RandCropper(RandSampler):
         elif self.config['gt_constraint'] == 'corner':
             for i in range(ious.shape[0]):
                 if ious[i] > 0:
-                    if gt_boxes[i, 1] < l or gt_boxes[i, 3] > r \
-                        or gt_boxes[i, 2] < t or gt_boxes[i, 4] > b:
+                    if gt_boxes[i, 1] < l or gt_boxes[i, 3] > r or gt_boxes[i, 2] < t or gt_boxes[i, 4] > b:
                         return None
         return ious
 
@@ -222,11 +223,11 @@ class RandPadder(RandSampler):
         assert min_scale >= 1, "min_scale must in (0, 1]"
         self.min_scale = min_scale
         self.max_scale = max_scale
-        assert 0 < min_aspect_ratio and min_aspect_ratio <= 1, "min_ratio must in (0, 1]"
-        assert 1 <= max_aspect_ratio , "max_ratio must >= 1"
+        assert min_aspect_ratio > 0 and min_aspect_ratio <= 1, "min_ratio must in (0, 1]"
+        assert max_aspect_ratio >= 1, "max_ratio must >= 1"
         self.min_aspect_ratio = min_aspect_ratio
         self.max_aspect_ratio = max_aspect_ratio
-        assert 0 <= min_gt_scale and min_gt_scale <= 1, "min_gt_scale must in [0, 1]"
+        assert min_gt_scale >= 0 and min_gt_scale <= 1, "min_gt_scale must in [0, 1]"
         self.min_gt_scale = min_gt_scale
 
     def sample(self, label):
@@ -279,9 +280,8 @@ class RandPadder(RandSampler):
             if not new_gt_boxes:
                 continue
             new_gt_boxes = np.array(new_gt_boxes)
-            label = np.lib.pad(new_gt_boxes,
-                ((0, label.shape[0]-new_gt_boxes.shape[0]), (0,0)), \
-                'constant', constant_values=(-1, -1))
+            label = np.lib.pad(new_gt_boxes, ((0, label.shape[0]-new_gt_boxes.shape[0]), (0, 0)), 'constant',
+                               constant_values=(-1, -1))
             samples.append((rand_box, label))
             count += 1
         return samples

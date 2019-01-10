@@ -16,7 +16,9 @@
 # under the License.
 
 # -*- coding: utf-8 -*-
-
+"""
+Generate helper functions to handling the conversion in data labeling
+"""
 import csv
 
 from log_util import LogUtil
@@ -25,6 +27,9 @@ from singleton import Singleton
 
 @Singleton
 class LabelUtil:
+    """
+    Generate helper functions to handling the conversion in data labeling
+    """
     _log = None
 
     # dataPath
@@ -33,6 +38,9 @@ class LabelUtil:
         self._log.debug("LabelUtil init")
 
     def load_unicode_set(self, unicodeFilePath):
+        """
+        Load the unicodemap_en_baidu.csv dataset
+        """
         self.byChar = {}
         self.byIndex = {}
         self.unicodeFilePath = unicodeFilePath
@@ -46,7 +54,6 @@ class LabelUtil:
                 self.byIndex[int(r[1])] = r[0]
                 self.count += 1
 
-
     def to_unicode(self, src, index):
         # 1 byte
         code1 = int(ord(src[index + 0]))
@@ -58,6 +65,9 @@ class LabelUtil:
         return result, index
 
     def convert_word_to_grapheme(self, label):
+        """
+        Generate the conversion from word to grapheme
+        """
 
         result = []
 
@@ -72,6 +82,9 @@ class LabelUtil:
         return result, "".join(result)
 
     def convert_word_to_num(self, word):
+        """
+        Generate the conversion from word to num
+        """
         try:
             label_list, _ = self.convert_word_to_grapheme(word)
 
@@ -96,20 +109,25 @@ class LabelUtil:
             exit(-1)
 
     def convert_bi_graphemes_to_num(self, word):
-            label_num = []
+        """
+        Generate the conversion between bi-graphemes and num
+        """
+        label_num = []
 
-            for char in word:
-                # skip word
-                if char == "":
-                    pass
-                else:
-                    label_num.append(int(self.byChar[char]))
+        for char in word:
+            # skip word
+            if char == "":
+                pass
+            else:
+                label_num.append(int(self.byChar[char]))
 
-            # tuple typecast: read only, faster
-            return tuple(label_num)
-
+        # tuple typecast: read only, faster
+        return tuple(label_num)
 
     def convert_num_to_word(self, num_list):
+        """
+        Generate the conversion between num and word
+        """
         try:
             label_list = []
             for num in num_list:

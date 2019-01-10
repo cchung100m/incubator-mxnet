@@ -14,12 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions to Speech-To-Text bi-graphemes
+"""
 import csv
 from collections import Counter
 
 
 def split_every(n, label):
+    """
+    Helper function to split label
+    """
     index = 0
     if index <= len(label) - 1 <= index + n - 1:
         yield label[index:len(label)]
@@ -29,7 +34,8 @@ def split_every(n, label):
         index = index + n
         if index <= len(label)-1 <= index+n-1:
             yield label[index:len(label)]
-            index=index+n
+            index = index+n
+
 
 def generate_bi_graphemes_label(label):
     label_bi_graphemes = []
@@ -42,7 +48,11 @@ def generate_bi_graphemes_label(label):
             label_bi_graphemes.append(" ")
     return label_bi_graphemes
 
+
 def generate_bi_graphemes_dictionary(label_list):
+    """
+    Generate bi-graphemes dictionary from csv
+    """
     freqs = Counter()
     for label in label_list:
         label = label.split(' ')
@@ -51,9 +61,8 @@ def generate_bi_graphemes_dictionary(label_list):
                 if len(pair) == 2:
                     freqs[pair] += 1
 
-
     with open('resources/unicodemap_en_baidu_bi_graphemes.csv', 'w') as bigram_label:
-        bigramwriter = csv.writer(bigram_label, delimiter = ',')
+        bigramwriter = csv.writer(bigram_label, delimiter=',')
         baidu_labels = list('\' abcdefghijklmnopqrstuvwxyz')
         for index, key in enumerate(baidu_labels):
             bigramwriter.writerow((key, index+1))

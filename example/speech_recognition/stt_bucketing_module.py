@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Save model module for Speech-To-Text bucketing
+"""
 import mxnet as mx
 
 

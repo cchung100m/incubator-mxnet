@@ -14,20 +14,28 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions to handling the log
+"""
 import logging
 import logging.handlers
 from singleton import Singleton
 
 @Singleton
 class LogUtil:
-
+    """
+    Define helper functions to handling the log
+    """
     _logger = None
     _filename = None
 
     def getlogger(self, filename=None):
+        """
+        Create logger operator to set the format and message of log
+        """
         if self._logger is not None and filename is not None:
-            self._logger.warning('Filename %s ignored, logger is already instanciated with %s' % (filename, self._filename))
+            self._logger.warning('Filename %s ignored, logger is already instanciated with %s',
+                                 filename, self._filename)
         if self._logger is None:
             self._filename = filename
 
@@ -45,8 +53,8 @@ class LogUtil:
                 file_max_bytes = 10 * 1024 * 1024
 
                 file_handler = logging.handlers.RotatingFileHandler(filename='./log/' + self._filename,
-                                                                   maxBytes=file_max_bytes,
-                                                                   backupCount=10)
+                                                                    maxBytes=file_max_bytes,
+                                                                    backupCount=10)
                 file_formatter = logging.Formatter('[%(levelname)8s][%(asctime)s.%(msecs)03d] %(message)s',
                                                    datefmt='%Y/%m/%d %H:%M:%S')
                 file_handler.setFormatter(file_formatter)
@@ -54,7 +62,5 @@ class LogUtil:
 
             self._logger.addHandler(stream_handler)
             self._logger.setLevel(logging.DEBUG)
-            
-        
-        return self._logger
 
+        return self._logger

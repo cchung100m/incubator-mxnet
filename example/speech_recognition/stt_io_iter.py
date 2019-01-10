@@ -14,18 +14,22 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate iterator module of I/O for Speech-To-Text data
+"""
 from __future__ import print_function
 
 import sys
-
-sys.path.insert(0, "../../python")
+import random
 import mxnet as mx
 
-import random
+sys.path.insert(0, "../../python")
 
 
 class SimpleBatch(object):
+    """
+    Generate simple batch of train/valid dataset
+    """
     def __init__(self, data_names, data, label_names, label):
         self.data = data
         self.label = label
@@ -46,6 +50,9 @@ class SimpleBatch(object):
 
 
 class STTIter(mx.io.DataIter):
+    """
+    Generate iterator of Speech-To-Text data
+    """
     def __init__(self, count, datagen, batch_size, num_label, init_states, seq_length, width, height,
                  sort_by_duration=True,
                  is_bi_graphemes=False, partition="train",
@@ -104,16 +111,24 @@ class STTIter(mx.io.DataIter):
             for i in range(self.batch_size):
                 try:
                     duration, audio_path, text = next(self.trainDataIter)
-                except:
+                except StopIteration:
                     random.shuffle(self.trainDataList)
-                    self.trainDataIter = iter(self.trainDataList)
-                    duration, audio_path, text = next(self.trainDataIter)
+                    try:
+                        self.trainDataIter = iter(self.trainDataList)
+                        duration, audio_path, text = next(self.trainDataIter)
+                    except StopIteration as e:
+                        raise Exception(e)
                 audio_paths.append(audio_path)
                 texts.append(text)
+
             if self.is_first_epoch:
-                data_set = self.datagen.prepare_minibatch(audio_paths, texts, overwrite=True, is_bi_graphemes=self.is_bi_graphemes, save_feature_as_csvfile=self.save_feature_as_csvfile)
+                data_set = self.datagen.prepare_minibatch(audio_paths, texts, overwrite=True,
+                                                          is_bi_graphemes=self.is_bi_graphemes,
+                                                          save_feature_as_csvfile=self.save_feature_as_csvfile)
             else:
-                data_set = self.datagen.prepare_minibatch(audio_paths, texts, overwrite=False, is_bi_graphemes=self.is_bi_graphemes, save_feature_as_csvfile=self.save_feature_as_csvfile)
+                data_set = self.datagen.prepare_minibatch(audio_paths, texts, overwrite=False,
+                                                          is_bi_graphemes=self.is_bi_graphemes,
+                                                          save_feature_as_csvfile=self.save_feature_as_csvfile)
 
             data_all = [mx.nd.array(data_set['x'])] + self.init_state_arrays
             label_all = [mx.nd.array(data_set['y'])]

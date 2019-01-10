@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate fully connected layers to build Speech-To-Text (STT) models on DeepSpeech2 of Baidu
+"""
 import mxnet as mx
 
 from stt_layer_batchnorm import batchnorm
@@ -28,6 +30,9 @@ def fc(net,
        no_bias=False,
        name=None
        ):
+    """
+    Determine fully connected layers with/without weight and bias
+    """
     # when weight and bias doesn't have specific name
     if weight is None and bias is None:
         net = mx.sym.FullyConnected(data=net, num_hidden=num_hidden, no_bias=no_bias, name=name)
@@ -45,7 +50,8 @@ def fc(net,
         if no_bias:
             net = mx.sym.FullyConnected(data=net, num_hidden=num_hidden, weight=weight, no_bias=no_bias, name=name)
         else:
-            net = mx.sym.FullyConnected(data=net, num_hidden=num_hidden, weight=weight, bias=bias, no_bias=no_bias, name=name)
+            net = mx.sym.FullyConnected(data=net, num_hidden=num_hidden, weight=weight, bias=bias, no_bias=no_bias,
+                                        name=name)
     # activation
     if act_type is not None:
         net = mx.sym.Activation(data=net, act_type=act_type, name="%s_activation" % name)
@@ -56,11 +62,14 @@ def sequence_fc(net,
                 seq_len,
                 num_layer,
                 prefix,
-                num_hidden_list=[],
-                act_type_list=[],
+                num_hidden_list=None,
+                act_type_list=None,
                 is_batchnorm=False,
                 dropout_rate=0,
                 ):
+    """
+    Generate fully connected layers
+    """
     if num_layer == len(num_hidden_list) == len(act_type_list):
         if num_layer > 0:
             weight_list = []
@@ -79,11 +88,11 @@ def sequence_fc(net,
                     gamma_list.append(mx.sym.Variable(name='%s_sequence_fc%d_gamma' % (prefix, layer_index)))
                     beta_list.append(mx.sym.Variable(name='%s_sequence_fc%d_beta' % (prefix, layer_index)))
             # batch normalization parameters ends
-            if type(net) is mx.symbol.Symbol:
+            if isinstance(net, mx.symbol.Symbol):
                 net = mx.sym.SliceChannel(data=net, num_outputs=seq_len, axis=1, squeeze_axis=1)
-            elif type(net) is list:
+            elif isinstance(net, list):
                 for net_index, one_net in enumerate(net):
-                    if type(one_net) is not mx.symbol.Symbol:
+                    if not isinstance(one_net, mx.symbol.Symbol):
                         raise Exception('%d th elements of the net should be mx.symbol.Symbol' % net_index)
             else:
                 raise Exception('type of net should be whether mx.symbol.Symbol or list of mx.symbol.Symbol')

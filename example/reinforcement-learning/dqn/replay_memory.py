@@ -14,23 +14,26 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Implement replay memory to save training weights and sampling batch for training
+"""
 from __future__ import absolute_import, division, print_function
-
-import mxnet as mx
-import mxnet.ndarray as nd
-import numpy
 import copy
+import numpy
+import mxnet as mx
 from utils import get_numpy_rng
 
 
 class ReplayMemory(object):
+    """
+    Create Replay Memory, keep the training weights into memory, and take batch from memory
+    """
     def __init__(self, history_length, memory_size=1000000, replay_start_size=100,
                  state_dim=(), action_dim=(), state_dtype='uint8', action_dtype='uint8',
                  ctx=mx.gpu()):
         self.rng = get_numpy_rng()
         self.ctx = ctx
-        assert type(action_dim) is tuple and type(state_dim) is tuple, \
+        assert isinstance(action_dim, tuple) and isinstance(state_dim, tuple), \
             "Must set the dimensions of state and action for replay memory"
         self.state_dim = state_dim
         if action_dim == (1,):
@@ -49,12 +52,12 @@ class ReplayMemory(object):
 
     def latest_slice(self):
         if self.size >= self.history_length:
-            return self.states.take(numpy.arange(self.top - self.history_length, self.top),
-                                    axis=0, mode="wrap")
+            return self.states.take(numpy.arange(self.top - self.history_length, self.top), axis=0, mode="wrap")
         else:
             assert False, "We can only slice from the replay memory if the " \
                           "replay size is larger than the length of frames we want to take" \
                           "as the input."
+            return None
 
     @property
     def sample_enabled(self):
@@ -80,6 +83,9 @@ class ReplayMemory(object):
         self.size = 0
 
     def copy(self):
+        """
+        Generate the copy of replay memory
+        """
         # TODO Test the copy function
         replay_memory = copy.copy(self)
         replay_memory.states = numpy.zeros(self.states.shape, dtype=self.states.dtype)
@@ -106,6 +112,9 @@ class ReplayMemory(object):
             self.size += 1
 
     def sample_last(self, batch_size, states, offset):
+        """
+        Generate samples from the ReplayMemory
+        """
         assert self.size >= batch_size and self.replay_start_size >= self.history_length
         assert(0 <= self.size <= self.memory_size)
         assert(0 <= self.top <= self.memory_size)
@@ -134,6 +143,9 @@ class ReplayMemory(object):
         return actions, rewards, terminate_flags
 
     def sample_mix(self, batch_size, states, offset, current_index):
+        """
+        Generate samples from the ReplayMemory
+        """
         assert self.size >= batch_size and self.replay_start_size >= self.history_length
         assert(0 <= self.size <= self.memory_size)
         assert(0 <= self.top <= self.memory_size)
@@ -163,6 +175,9 @@ class ReplayMemory(object):
         return actions, rewards, terminate_flags
 
     def sample_inplace(self, batch_size, states, offset):
+        """
+        Generate samples from the ReplayMemory
+        """
         assert self.size >= batch_size and self.replay_start_size >= self.history_length
         assert(0 <= self.size <= self.memory_size)
         assert(0 <= self.top <= self.memory_size)
@@ -176,7 +191,7 @@ class ReplayMemory(object):
 
         counter = 0
         while counter < batch_size:
-            index = self.rng.randint(low=self.top - self.size + 1, high=self.top - self.history_length )
+            index = self.rng.randint(low=self.top - self.size + 1, high=self.top - self.history_length)
             transition_indices = numpy.arange(index, index + self.history_length+1)
             initial_indices = transition_indices - 1
             end_index = index + self.history_length - 1
@@ -192,6 +207,9 @@ class ReplayMemory(object):
         return actions, rewards, terminate_flags
 
     def sample(self, batch_size):
+        """
+        Generate samples from the ReplayMemory
+        """
         assert self.size >= batch_size and self.replay_start_size >= self.history_length
         assert(0 <= self.size <= self.memory_size)
         assert(0 <= self.top <= self.memory_size)

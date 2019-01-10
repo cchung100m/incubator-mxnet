@@ -14,11 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Implement configuration to set the parallel actor critic
+"""
 import mxnet as mx
 
 
 class Config(object):
+    """
+    Create Config object
+    """
     def __init__(self, args):
         # Default training settings
         self.ctx = mx.gpu(0) if args.gpu else mx.cpu()

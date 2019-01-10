@@ -20,29 +20,29 @@
 import argparse
 from itertools import chain
 import time
-import gym
 import numpy as np
+import gym
 import mxnet as mx
 from config import Config
 from envs import Atari8080Preprocessor, IdentityPreprocessor
 from model import Agent
 
 
-def train_episode(agent, envs, preprocessors, t_max, render):
+def train_episode(agent_iter, envs_list, preprocessors_list, t_max, render):
     """Complete an episode's worth of training for each environment."""
-    num_envs = len(envs)
+    num_envs = len(envs_list)
 
     # Buffers to hold trajectories, e.g. `env_xs[i]` will hold the observations
     # for environment `i`.
     env_xs, env_as = _2d_list(num_envs), _2d_list(num_envs)
     env_rs, env_vs = _2d_list(num_envs), _2d_list(num_envs)
-    episode_rs = np.zeros(num_envs, dtype=np.float)
+    episodes_rs = np.zeros(num_envs, dtype=np.float)
 
-    for p in preprocessors:
+    for p in preprocessors_list:
         p.reset()
 
     observations = [p.preprocess(e.reset())
-                    for p, e in zip(preprocessors, envs)]
+                    for p, e in zip(preprocessors_list, envs_list)]
 
     done = np.array([False for _ in range(num_envs)])
     all_done = False
@@ -50,40 +50,40 @@ def train_episode(agent, envs, preprocessors, t_max, render):
 
     while not all_done:
         if render:
-            envs[0].render()
+            envs_list[0].render()
 
         # NOTE(reed): Reshape to set the data shape.
-        agent.model.reshape([('data', (num_envs, preprocessors[0].obs_size))])
+        agent_iter.model.reshape([('data', (num_envs, preprocessors_list[0].obs_size))])
         step_xs = np.vstack([o.ravel() for o in observations])
 
         # Get actions and values for all environments in a single forward pass.
-        step_xs_nd = mx.nd.array(step_xs, ctx=agent.ctx)
+        step_xs_nd = mx.nd.array(step_xs, ctx=agent_iter.ctx)
         data_batch = mx.io.DataBatch(data=[step_xs_nd], label=None)
-        agent.model.forward(data_batch, is_train=False)
-        _, step_vs, _, step_ps = agent.model.get_outputs()
+        agent_iter.model.forward(data_batch, is_train=False)
+        _, step_vs, _, step_ps = agent_iter.model.get_outputs()
 
         step_ps = step_ps.asnumpy()
         step_vs = step_vs.asnumpy()
-        step_as = agent.act(step_ps)
+        step_as = agent_iter.act(step_ps)
 
         # Step each environment whose episode has not completed.
-        for i, env in enumerate(envs):
-            if not done[i]:
-                obs, r, done[i], _ = env.step(step_as[i])
+        for idx, element in enumerate(envs_list):
+            if not done[idx]:
+                obs, r, done[idx], _ = element.step(step_as[idx])
 
                 # Record the observation, action, value, and reward in the
                 # buffers.
-                env_xs[i].append(step_xs[i].ravel())
-                env_as[i].append(step_as[i])
-                env_vs[i].append(step_vs[i][0])
-                env_rs[i].append(r)
-                episode_rs[i] += r
+                env_xs[idx].append(step_xs[idx].ravel())
+                env_as[idx].append(step_as[idx])
+                env_vs[idx].append(step_vs[idx][0])
+                env_rs[idx].append(r)
+                episodes_rs[idx] += r
 
                 # Add 0 as the state value when done.
-                if done[i]:
-                    env_vs[i].append(0.0)
+                if done[idx]:
+                    env_vs[idx].append(0.0)
                 else:
-                    observations[i] = preprocessors[i].preprocess(obs)
+                    observations[idx] = preprocessors_list[idx].preprocess(obs)
 
         # Perform an update every `t_max` steps.
         if t == t_max:
@@ -91,18 +91,18 @@ def train_episode(agent, envs, preprocessors, t_max, render):
             # will be used to 'bootstrap' the final return (see Algorithm S3
             # in A3C paper).
             step_xs = np.vstack([o.ravel() for o in observations])
-            step_xs_nd = mx.nd.array(step_xs, ctx=agent.ctx)
+            step_xs_nd = mx.nd.array(step_xs, ctx=agent_iter.ctx)
             data_batch = mx.io.DataBatch(data=[step_xs_nd], label=None)
-            agent.model.forward(data_batch, is_train=False)
-            _, extra_vs, _, _ = agent.model.get_outputs()
+            agent_iter.model.forward(data_batch, is_train=False)
+            _, extra_vs, _, _ = agent_iter.model.get_outputs()
             extra_vs = extra_vs.asnumpy()
-            for i in range(num_envs):
-                if not done[i]:
-                    env_vs[i].append(extra_vs[i][0])
+            for index in range(num_envs):
+                if not done[index]:
+                    env_vs[i].append(extra_vs[index][0])
 
             # Perform update and clear buffers.
             env_xs = np.vstack(list(chain.from_iterable(env_xs)))
-            agent.train_step(env_xs, env_as, env_rs, env_vs)
+            agent_iter.train_step(env_xs, env_as, env_rs, env_vs)
             env_xs, env_as = _2d_list(num_envs), _2d_list(num_envs)
             env_rs, env_vs = _2d_list(num_envs), _2d_list(num_envs)
             t = 0
@@ -110,7 +110,7 @@ def train_episode(agent, envs, preprocessors, t_max, render):
         all_done = np.all(done)
         t += 1
 
-    return episode_rs
+    return episodes_rs
 
 
 def _2d_list(n):

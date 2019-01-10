@@ -14,11 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+preprocess the observation, set input to network to be difference image
+"""
 import numpy as np
 
 
 class Atari8080Preprocessor(object):
+    """
+    Generate preprocessor to set the input be difference image for network
+    """
     def __init__(self):
         self.prev = None
         self.obs_size = 80*80

@@ -20,8 +20,8 @@ from __future__ import print_function
 
 import random
 
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 
 
 class SimpleBatch(object):

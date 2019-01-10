@@ -19,9 +19,8 @@
 from __future__ import print_function
 
 from operator import itemgetter
-
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 
 
 def nce_loss(data, label, label_weight, embed_weight, vocab_size, num_hidden):

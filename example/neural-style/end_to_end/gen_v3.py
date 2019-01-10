@@ -15,11 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
+"""
+Generate DNN v3 for neural style translation
+"""
 # coding: utf-8
 
 import mxnet as mx
-import numpy as np
 
 
 def Conv(data, num_filter, kernel=(5, 5), pad=(2, 2), stride=(2, 2)):
@@ -34,25 +35,29 @@ def Deconv(data, num_filter, im_hw, kernel=(7, 7), pad=(2, 2), stride=(2, 2), cr
     if crop:
         sym = mx.sym.Crop(sym, offset=(1, 1), h_w=im_hw, num_args=1)
     sym = mx.sym.BatchNorm(sym, fix_gamma=False)
-    if out == False:
+    if out is False:
         sym = mx.sym.LeakyReLU(sym, act_type="leaky")
     else:
         sym = mx.sym.Activation(sym, act_type="tanh")
     return sym
 
+
 def get_generator(prefix, im_hw):
+    """
+    Create the model for neural style translation
+    """
     data = mx.sym.Variable("%s_data" % prefix)
-    conv1 = Conv(data, 64) # 192
+    conv1 = Conv(data, 64)  # 192
     conv1_1 = Conv(conv1, 48, kernel=(3, 3), pad=(1, 1), stride=(1, 1))
-    conv2 = Conv(conv1_1, 128) # 96
+    conv2 = Conv(conv1_1, 128)  # 96
     conv2_1 = Conv(conv2, 96, kernel=(3, 3), pad=(1, 1), stride=(1, 1))
-    conv3 = Conv(conv2_1, 256) # 48
+    conv3 = Conv(conv2_1, 256)  # 48
     conv3_1 = Conv(conv3, 192, kernel=(3, 3), pad=(1, 1), stride=(1, 1))
     deconv1 = Deconv(conv3_1, 128, (int(im_hw[0] / 4), int(im_hw[1] / 4))) + conv2
     conv4_1 = Conv(deconv1, 160, kernel=(3, 3), pad=(1, 1), stride=(1, 1))
     deconv2 = Deconv(conv4_1, 64, (int(im_hw[0] / 2), int(im_hw[1] / 2))) + conv1
     conv5_1 = Conv(deconv2, 96, kernel=(3, 3), pad=(1, 1), stride=(1, 1))
-    deconv3 = Deconv(conv5_1, 3, im_hw, kernel=(8,  8), pad=(3, 3), out=True, crop=False)
+    deconv3 = Deconv(conv5_1, 3, im_hw, kernel=(8, 8), pad=(3, 3), out=True, crop=False)
     raw_out = (deconv3 * 128) + 128
     norm = mx.sym.SliceChannel(raw_out, num_outputs=3)
     r_ch = norm[0] - 123.68
@@ -61,7 +66,16 @@ def get_generator(prefix, im_hw):
     norm_out = 0.4 * mx.sym.Concat(*[r_ch, g_ch, b_ch]) + 0.6 * data
     return norm_out
 
+
 def get_module(prefix, dshape, ctx, is_train=True):
+    """
+    Select module to generate model for neural style translation
+
+    :param prefix: string
+    :param dshape: tuple of dimension
+    :param ctx: context
+    :param is_train: boolean
+    """
     sym = get_generator(prefix, dshape[-2:])
     mod = mx.mod.Module(symbol=sym,
                         data_names=("%s_data" % prefix,),
@@ -73,7 +87,3 @@ def get_module(prefix, dshape, ctx, is_train=True):
         mod.bind(data_shapes=[("%s_data" % prefix, dshape)], for_training=False, inputs_need_grad=False)
     mod.init_params(initializer=mx.init.Xavier(magnitude=2.))
     return mod
-
-
-
-

@@ -27,10 +27,10 @@ from datetime import datetime
 import os
 import argparse
 import errno
-import mxnet as mx
 import numpy as np
-import cv2
 from scipy.io import savemat
+import mxnet as mx
+import cv2
 #from layer import GaussianSampleLayer
 
 ######################################################################
@@ -51,6 +51,7 @@ class MyConstant(mx.init.Initializer):
     def _init_weight(self, _, arr):
         arr[:] = mx.nd.array(self.value)
 
+
 def encoder(nef, z_dim, batch_size, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12):
     '''The encoder is a CNN which takes 32x32 image as input
     generates the 100 dimensional shape embedding as a sample from normal distribution
@@ -60,19 +61,23 @@ def encoder(nef, z_dim, batch_size, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-
 
     data = mx.sym.Variable('data')
 
-    e1 = mx.sym.Convolution(data, name='enc1', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=nef, no_bias=no_bias)
+    e1 = mx.sym.Convolution(data, name='enc1', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=nef,
+                            no_bias=no_bias)
     ebn1 = BatchNorm(e1, name='encbn1', fix_gamma=fix_gamma, eps=eps)
     eact1 = mx.sym.LeakyReLU(ebn1, name='encact1', act_type='leaky', slope=0.2)
 
-    e2 = mx.sym.Convolution(eact1, name='enc2', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=nef*2, no_bias=no_bias)
+    e2 = mx.sym.Convolution(eact1, name='enc2', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=nef*2,
+                            no_bias=no_bias)
     ebn2 = BatchNorm(e2, name='encbn2', fix_gamma=fix_gamma, eps=eps)
     eact2 = mx.sym.LeakyReLU(ebn2, name='encact2', act_type='leaky', slope=0.2)
 
-    e3 = mx.sym.Convolution(eact2, name='enc3', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=nef*4, no_bias=no_bias)
+    e3 = mx.sym.Convolution(eact2, name='enc3', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=nef*4,
+                            no_bias=no_bias)
     ebn3 = BatchNorm(e3, name='encbn3', fix_gamma=fix_gamma, eps=eps)
     eact3 = mx.sym.LeakyReLU(ebn3, name='encact3', act_type='leaky', slope=0.2)
 
-    e4 = mx.sym.Convolution(eact3, name='enc4', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=nef*8, no_bias=no_bias)
+    e4 = mx.sym.Convolution(eact3, name='enc4', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=nef*8,
+                            no_bias=no_bias)
     ebn4 = BatchNorm(e4, name='encbn4', fix_gamma=fix_gamma, eps=eps)
     eact4 = mx.sym.LeakyReLU(ebn4, name='encact4', act_type='leaky', slope=0.2)
 
@@ -81,9 +86,11 @@ def encoder(nef, z_dim, batch_size, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-
     z_mu = mx.sym.FullyConnected(eact4, num_hidden=z_dim, name="enc_mu")
     z_lv = mx.sym.FullyConnected(eact4, num_hidden=z_dim, name="enc_lv")
 
-    z = z_mu + mx.symbol.broadcast_mul(mx.symbol.exp(0.5*z_lv),mx.symbol.random_normal(loc=0, scale=1,shape=(batch_size,z_dim)))
+    z = z_mu + mx.symbol.broadcast_mul(mx.symbol.exp(0.5*z_lv),
+                                       mx.symbol.random_normal(loc=0, scale=1, shape=(batch_size, z_dim)))
 
     return z_mu, z_lv, z
+
 
 def generator(ngf, nc, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12, z_dim=100, activation='sigmoid'):
     '''The genrator is a CNN which takes 100 dimensional embedding as input
@@ -94,26 +101,32 @@ def generator(ngf, nc, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12, z_dim=100
 
     rand = mx.sym.Reshape(rand, shape=(-1, z_dim, 1, 1))
 
-    g1 = mx.sym.Deconvolution(rand, name='gen1', kernel=(5,5), stride=(2,2),target_shape=(2,2), num_filter=ngf*8, no_bias=no_bias)
+    g1 = mx.sym.Deconvolution(rand, name='gen1', kernel=(5, 5), stride=(2, 2), target_shape=(2, 2), num_filter=ngf*8,
+                              no_bias=no_bias)
     gbn1 = BatchNorm(g1, name='genbn1', fix_gamma=fix_gamma, eps=eps)
     gact1 = mx.sym.Activation(gbn1, name="genact1", act_type="relu")
 
-    g2 = mx.sym.Deconvolution(gact1, name='gen2', kernel=(5,5), stride=(2,2),target_shape=(4,4), num_filter=ngf*4, no_bias=no_bias)
+    g2 = mx.sym.Deconvolution(gact1, name='gen2', kernel=(5, 5), stride=(2, 2), target_shape=(4, 4), num_filter=ngf*4,
+                              no_bias=no_bias)
     gbn2 = BatchNorm(g2, name='genbn2', fix_gamma=fix_gamma, eps=eps)
     gact2 = mx.sym.Activation(gbn2, name='genact2', act_type='relu')
 
-    g3 = mx.sym.Deconvolution(gact2, name='gen3', kernel=(5,5), stride=(2,2), target_shape=(8,8), num_filter=ngf*2, no_bias=no_bias)
+    g3 = mx.sym.Deconvolution(gact2, name='gen3', kernel=(5, 5), stride=(2, 2), target_shape=(8, 8), num_filter=ngf*2,
+                              no_bias=no_bias)
     gbn3 = BatchNorm(g3, name='genbn3', fix_gamma=fix_gamma, eps=eps)
     gact3 = mx.sym.Activation(gbn3, name='genact3', act_type='relu')
 
-    g4 = mx.sym.Deconvolution(gact3, name='gen4', kernel=(5,5), stride=(2,2), target_shape=(16,16), num_filter=ngf, no_bias=no_bias)
+    g4 = mx.sym.Deconvolution(gact3, name='gen4', kernel=(5, 5), stride=(2, 2), target_shape=(16, 16), num_filter=ngf,
+                              no_bias=no_bias)
     gbn4 = BatchNorm(g4, name='genbn4', fix_gamma=fix_gamma, eps=eps)
     gact4 = mx.sym.Activation(gbn4, name='genact4', act_type='relu')
 
-    g5 = mx.sym.Deconvolution(gact4, name='gen5', kernel=(5,5), stride=(2,2), target_shape=(32,32), num_filter=nc, no_bias=no_bias)
+    g5 = mx.sym.Deconvolution(gact4, name='gen5', kernel=(5, 5), stride=(2, 2), target_shape=(32, 32), num_filter=nc,
+                              no_bias=no_bias)
     gout = mx.sym.Activation(g5, name='genact5', act_type=activation)
 
     return gout
+
 
 def discriminator1(ndf, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12):
     '''First part of the discriminator which takes a 32x32 image as input
@@ -123,18 +136,22 @@ def discriminator1(ndf, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12):
 
     data = mx.sym.Variable('data')
 
-    d1 = mx.sym.Convolution(data, name='d1', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=ndf, no_bias=no_bias)
+    d1 = mx.sym.Convolution(data, name='d1', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=ndf,
+                            no_bias=no_bias)
     dact1 = mx.sym.LeakyReLU(d1, name='dact1', act_type='leaky', slope=0.2)
 
-    d2 = mx.sym.Convolution(dact1, name='d2', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=ndf*2, no_bias=no_bias)
+    d2 = mx.sym.Convolution(dact1, name='d2', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=ndf*2,
+                            no_bias=no_bias)
     dbn2 = BatchNorm(d2, name='dbn2', fix_gamma=fix_gamma, eps=eps)
     dact2 = mx.sym.LeakyReLU(dbn2, name='dact2', act_type='leaky', slope=0.2)
 
-    d3 = mx.sym.Convolution(dact2, name='d3', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=ndf*4, no_bias=no_bias)
+    d3 = mx.sym.Convolution(dact2, name='d3', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=ndf*4,
+                            no_bias=no_bias)
     dbn3 = BatchNorm(d3, name='dbn3', fix_gamma=fix_gamma, eps=eps)
     dact3 = mx.sym.LeakyReLU(dbn3, name='dact3', act_type='leaky', slope=0.2)
 
     return dact3
+
 
 def discriminator2(ndf, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12):
     '''Second part of the discriminator which takes a 256x8x8 feature map as input
@@ -146,7 +163,8 @@ def discriminator2(ndf, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12):
 
     label = mx.sym.Variable('label')
 
-    d4 = mx.sym.Convolution(data, name='d4', kernel=(5,5), stride=(2,2), pad=(2,2), num_filter=ndf*8, no_bias=no_bias)
+    d4 = mx.sym.Convolution(data, name='d4', kernel=(5, 5), stride=(2, 2), pad=(2, 2), num_filter=ndf*8,
+                            no_bias=no_bias)
     dbn4 = BatchNorm(d4, name='dbn4', fix_gamma=fix_gamma, eps=eps)
     dact4 = mx.sym.LeakyReLU(dbn4, name='dact4', act_type='leaky', slope=0.2)
 
@@ -158,7 +176,8 @@ def discriminator2(ndf, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12):
 
     return dloss
 
-def GaussianLogDensity(x, mu, log_var, name='GaussianLogDensity', EPSILON = 1e-6):
+
+def GaussianLogDensity(x, mu, log_var, name='GaussianLogDensity', EPSILON=1e-6):
     '''GaussianLogDensity loss calculation for layer wise loss
     '''
     c = mx.sym.ones_like(log_var)*2.0 * 3.1416
@@ -169,6 +188,7 @@ def GaussianLogDensity(x, mu, log_var, name='GaussianLogDensity', EPSILON = 1e-6
     log_prob = -0.5 * (c + log_var + x_mu2_over_var)
     log_prob = mx.symbol.sum(log_prob, axis=1, name=name)   # keep_dims=True,
     return log_prob
+
 
 def DiscriminatorLayerLoss():
     '''Calculate the discriminator layer loss
@@ -187,28 +207,29 @@ def DiscriminatorLayerLoss():
 
     output = -GaussianLogDensity(label, data, zeros)
 
-    dloss = mx.symbol.MakeLoss(mx.symbol.mean(output),name='lloss')
+    dloss = mx.symbol.MakeLoss(mx.symbol.mean(output), name='lloss')
 
     return dloss
+
 
 def KLDivergenceLoss():
     '''KLDivergenceLoss loss
     '''
 
     data = mx.sym.Variable('data')
-    mu1, lv1 = mx.sym.split(data,  num_outputs=2, axis=0)
+    mu1, lv1 = mx.sym.split(data, num_outputs=2, axis=0)
     mu2 = mx.sym.zeros_like(mu1)
     lv2 = mx.sym.zeros_like(lv1)
 
     v1 = mx.sym.exp(lv1)
     v2 = mx.sym.exp(lv2)
     mu_diff_sq = mx.sym.square(mu1 - mu2)
-    dimwise_kld = .5 * (
-    (lv2 - lv1) + mx.symbol.broadcast_div(v1, v2) + mx.symbol.broadcast_div(mu_diff_sq, v2) - 1.)
+    dimwise_kld = .5 * ((lv2 - lv1) + mx.symbol.broadcast_div(v1, v2) + mx.symbol.broadcast_div(mu_diff_sq, v2) - 1.)
     KL = mx.symbol.sum(dimwise_kld, axis=1)
 
-    KLloss = mx.symbol.MakeLoss(mx.symbol.mean(KL),name='KLloss')
+    KLloss = mx.symbol.MakeLoss(mx.symbol.mean(KL), name='KLloss')
     return KLloss
+
 
 def get_data(path, activation):
     '''Get the dataset
@@ -216,7 +237,7 @@ def get_data(path, activation):
     data = []
     image_names = []
     for filename in os.listdir(path):
-        img = cv2.imread(os.path.join(path,filename), cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(os.path.join(path, filename), cv2.IMREAD_GRAYSCALE)
         image_names.append(filename)
         if img is not None:
             data.append(img)
@@ -236,6 +257,7 @@ def get_data(path, activation):
 
     return X, image_names
 
+
 class RandIter(mx.io.DataIter):
     '''Create a random iterator for generator
     '''
@@ -250,6 +272,7 @@ class RandIter(mx.io.DataIter):
 
     def getdata(self):
         return [mx.random.normal(0, 1.0, shape=(self.batch_size, self.ndim, 1, 1))]
+
 
 def fill_buf(buf, i, img, shape):
     '''fill the ith grid of the buffer matrix with the values from the img
@@ -267,6 +290,7 @@ def fill_buf(buf, i, img, shape):
     sy = int(sy)
     buf[sy:sy+shape[0], sx:sx+shape[1], :] = img
 
+
 def visual(title, X, activation):
     '''create a grid of images and save it as a final image
     title : grid image name
@@ -283,9 +307,11 @@ def visual(title, X, activation):
     buff = np.zeros((int(n*X.shape[1]), int(n*X.shape[2]), int(X.shape[3])), dtype=np.uint8)
     for i, img in enumerate(X):
         fill_buf(buff, i, img, X.shape[1:3])
-    cv2.imwrite('%s.jpg' % (title), buff)
+    cv2.imwrite('%s.jpg' % title, buff)
 
-def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, check_point, g_dl_weight, output_path, checkpoint_path, data_path, activation,num_epoch, save_after_every, visualize_after_every, show_after_every):
+
+def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, check_point, g_dl_weight, output_path,
+          checkpoint_path, data_path, activation, num_epoch, save_after_every, visualize_after_every, show_after_every):
     '''adversarial training of the VAE
     '''
 
@@ -294,11 +320,11 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
     symE = mx.sym.Group([z_mu, z_lv, z])
 
     #generator
-    symG = generator(ngf, nc, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12, z_dim = Z, activation=activation )
+    symG = generator(ngf, nc, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12, z_dim=Z, activation=activation)
 
     #discriminator
-    h  = discriminator1(ndf)
-    dloss  = discriminator2(ndf)
+    h = discriminator1(ndf)
+    dloss = discriminator2(ndf)
     symD1 = h
     symD2 = dloss
 
@@ -362,9 +388,10 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
     # =============module DL=============
     symDL = DiscriminatorLayerLoss()
     modDL = mx.mod.Module(symbol=symDL, data_names=('data',), label_names=('label',), context=ctx)
-    modDL.bind(data_shapes=[('data', (batch_size,nef * 4,4,4))], ################################################################################################################################ fix 512 here
-              label_shapes=[('label', (batch_size,nef * 4,4,4))],
-              inputs_need_grad=True)
+    modDL.bind(data_shapes=[('data', (batch_size, nef * 4, 4, 4))],
+               ############################################################# fix 512 here
+               label_shapes=[('label', (batch_size, nef * 4, 4, 4))],
+               inputs_need_grad=True)
     modDL.init_params(initializer=mx.init.Normal(0.02))
     modDL.init_optimizer(
         optimizer='adam',
@@ -379,7 +406,7 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
     # =============module KL=============
     symKL = KLDivergenceLoss()
     modKL = mx.mod.Module(symbol=symKL, data_names=('data',), label_names=None, context=ctx)
-    modKL.bind(data_shapes=[('data', (batch_size*2,Z))],
+    modKL.bind(data_shapes=[('data', (batch_size*2, Z))],
                inputs_need_grad=True)
     modKL.init_params(initializer=mx.init.Normal(0.02))
     modKL.init_optimizer(
@@ -418,7 +445,9 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
     def kldivergence(label, pred):
         '''calculating KL divergence loss
         '''
-        mean, log_var = np.split(pred, 2, axis=0)
+        array_list = np.split(pred, 2, axis=0)
+        mean = array_list[0]
+        log_var = array_list[1]
         var = np.exp(log_var)
         KLLoss = -0.5 * np.sum(1 + log_var - np.power(mean, 2) - var)
         KLLoss = KLLoss / nElements
@@ -430,7 +459,7 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
     mACC = mx.metric.CustomMetric(facc)
 
     print('Training...')
-    stamp =  datetime.now().strftime('%Y_%m_%d-%H_%M')
+    stamp = datetime.now().strftime('%Y_%m_%d-%H_%M')
 
     # =============train===============
     for epoch in range(num_epoch):
@@ -460,7 +489,7 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
             modE.forward(batch, is_train=True)
             mu, lv, z = modE.get_outputs()
             z = z.reshape((batch_size, Z, 1, 1))
-            sample = mx.io.DataBatch([z], label=None, provide_data = [('rand', (batch_size, Z, 1, 1))])
+            sample = mx.io.DataBatch([z], label=None, provide_data=[('rand', (batch_size, Z, 1, 1))])
             modG.forward(sample, is_train=True)
             xz = modG.get_outputs()
             label[:] = 0
@@ -581,7 +610,7 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
             modG.backward(diffD)
             #update encoder
             nElements = batch_size
-            modKL.forward(mx.io.DataBatch([mx.ndarray.concat(mu,lv, dim=0)]), is_train=True)
+            modKL.forward(mx.io.DataBatch([mx.ndarray.concat(mu, lv, dim=0)]), is_train=True)
             KLloss = modKL.get_outputs()
             modKL.backward()
             gradKLLoss = modKL.get_input_grads()
@@ -589,14 +618,15 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
             diffG = diffG[0].reshape((batch_size, Z))
             modE.backward(mx.ndarray.split(gradKLLoss[0], num_outputs=2, axis=0) + [diffG])
             modE.update()
-            pred = mx.ndarray.concat(mu,lv, dim=0)
+            pred = mx.ndarray.concat(mu, lv, dim=0)
             mE.update([pred], [pred])
             if mon is not None:
                 mon.toc_print()
 
             t += 1
             if t % show_after_every == 0:
-                print('epoch:', epoch, 'iter:', t, 'metric:', mACC.get(), mG.get(), mD.get(), mE.get(), KLloss[0].asnumpy(), DLloss[0].asnumpy())
+                print('epoch:', epoch, 'iter:', t, 'metric:', mACC.get(), mG.get(), mD.get(), mE.get(),
+                      KLloss[0].asnumpy(), DLloss[0].asnumpy())
                 mACC.reset()
                 mG.reset()
                 mD.reset()
@@ -612,7 +642,9 @@ def train(dataset, nef, ndf, ngf, nc, batch_size, Z, lr, beta1, epsilon, ctx, ch
             modD.save_params(checkpoint_path + '/%s_D-%04d.params'%(dataset, epoch))
             modE.save_params(checkpoint_path + '/%s_E-%04d.params'%(dataset, epoch))
 
-def test(nef, ngf, nc, batch_size, Z, ctx, pretrained_encoder_path, pretrained_generator_path, output_path, data_path, activation, save_embedding, embedding_path = ''):
+
+def test(nef, ngf, nc, batch_size, Z, ctx, pretrained_encoder_path, pretrained_generator_path, output_path, data_path,
+         activation, save_embedding, embedding_path=''):
     '''Test the VAE with a pretrained encoder and generator.
     Keep the batch size 1'''
     #encoder
@@ -620,7 +652,7 @@ def test(nef, ngf, nc, batch_size, Z, ctx, pretrained_encoder_path, pretrained_g
     symE = mx.sym.Group([z_mu, z_lv, z])
 
     #generator
-    symG = generator(ngf, nc, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12, z_dim = Z, activation=activation )
+    symG = generator(ngf, nc, no_bias=True, fix_gamma=True, eps=1e-5 + 1e-12, z_dim=Z, activation=activation)
 
     # ==============data==============
     X_test, image_names = get_data(data_path, activation)
@@ -646,7 +678,7 @@ def test(nef, ngf, nc, batch_size, Z, ctx, pretrained_encoder_path, pretrained_g
         modE.forward(batch, is_train=False)
         mu, lv, z = modE.get_outputs()
         mu = mu.reshape((batch_size, Z, 1, 1))
-        sample = mx.io.DataBatch([mu], label=None, provide_data = [('rand', (batch_size, Z, 1, 1))])
+        sample = mx.io.DataBatch([mu], label=None, provide_data=[('rand', (batch_size, Z, 1, 1))])
         modG.forward(sample, is_train=False)
         outG = modG.get_outputs()
 
@@ -656,6 +688,7 @@ def test(nef, ngf, nc, batch_size, Z, ctx, pretrained_encoder_path, pretrained_g
 
         if save_embedding:
             savemat(embedding_path+'/'+image_name+'.mat', {'embedding':mu.asnumpy()})
+
 
 def create_and_validate_dir(data_dir):
     '''Creates/Validates dir
@@ -680,17 +713,25 @@ def parse_args():
     parser.add_argument('--save_embedding', help='saves the shape embedding of each input image', action='store_true')
     parser.add_argument('--dataset', help='dataset name', default='caltech', type=str)
     parser.add_argument('--activation', help='activation i.e. sigmoid or tanh', default='sigmoid', type=str)
-    parser.add_argument('--training_data_path', help='training data path', default='datasets/caltech101/data/images32x32', type=str)
-    parser.add_argument('--testing_data_path', help='testing data path', default='datasets/caltech101/test_data', type=str)
-    parser.add_argument('--pretrained_encoder_path', help='pretrained encoder model path', default='checkpoints32x32_sigmoid/caltech_E-0045.params', type=str)
-    parser.add_argument('--pretrained_generator_path', help='pretrained generator model path', default='checkpoints32x32_sigmoid/caltech_G-0045.params', type=str)
-    parser.add_argument('--output_path', help='output path for the generated images', default='outputs32x32_sigmoid', type=str)
-    parser.add_argument('--embedding_path', help='output path for the generated embeddings', default='outputs32x32_sigmoid', type=str)
-    parser.add_argument('--checkpoint_path', help='checkpoint saving path ', default='checkpoints32x32_sigmoid', type=str)
+    parser.add_argument('--training_data_path', help='training data path',
+                        default='datasets/caltech101/data/images32x32', type=str)
+    parser.add_argument('--testing_data_path', help='testing data path', default='datasets/caltech101/test_data',
+                        type=str)
+    parser.add_argument('--pretrained_encoder_path', help='pretrained encoder model path',
+                        default='checkpoints32x32_sigmoid/caltech_E-0045.params', type=str)
+    parser.add_argument('--pretrained_generator_path', help='pretrained generator model path',
+                        default='checkpoints32x32_sigmoid/caltech_G-0045.params', type=str)
+    parser.add_argument('--output_path', help='output path for the generated images', default='outputs32x32_sigmoid',
+                        type=str)
+    parser.add_argument('--embedding_path', help='output path for the generated embeddings',
+                        default='outputs32x32_sigmoid', type=str)
+    parser.add_argument('--checkpoint_path', help='checkpoint saving path ', default='checkpoints32x32_sigmoid',
+                        type=str)
     parser.add_argument('--nef', help='encoder filter count in the first layer', default=64, type=int)
     parser.add_argument('--ndf', help='discriminator filter count in the first layer', default=64, type=int)
     parser.add_argument('--ngf', help='generator filter count in the second last layer', default=64, type=int)
-    parser.add_argument('--nc', help='generator filter count in the last layer i.e. 1 for grayscale image, 3 for RGB image', default=1, type=int)
+    parser.add_argument('--nc', help='generator filter count in the last layer i.e. 1 for '
+                                     'grayscale image, 3 for RGB image', default=1, type=int)
     parser.add_argument('--batch_size', help='batch size, keep it 1 during testing', default=64, type=int)
     parser.add_argument('--Z', help='embedding size', default=100, type=int)
     parser.add_argument('--lr', help='learning rate', default=0.0002, type=float)
@@ -700,14 +741,20 @@ def parse_args():
     parser.add_argument('--gpu', help='gpu index', default=0, type=int)
     parser.add_argument('--use_cpu', help='use cpu', action='store_true')
     parser.add_argument('--num_epoch', help='number of maximum epochs ', default=45, type=int)
-    parser.add_argument('--save_after_every', help='save checkpoint after every this number of epochs ', default=5, type=int)
-    parser.add_argument('--visualize_after_every', help='save output images after every this number of epochs', default=5, type=int)
+    parser.add_argument('--save_after_every', help='save checkpoint after every this number of epochs ',
+                        default=5, type=int)
+    parser.add_argument('--visualize_after_every', help='save output images after every this number of epochs',
+                        default=5, type=int)
     parser.add_argument('--show_after_every', help='show metrics after this number of iterations', default=10, type=int)
 
     args = parser.parse_args()
     return args
 
+
 def main():
+    """
+    Program entry point
+    """
     args = parse_args()
 
     if args.test and not os.path.exists(args.testing_data_path):
@@ -729,10 +776,15 @@ def main():
     check_point = True
 
     if args.train:
-        train(args.dataset, args.nef, args.ndf, args.ngf, args.nc, args.batch_size, args.Z, args.lr, args.beta1, args.epsilon, ctx, check_point, args.g_dl_weight, args.output_path, args.checkpoint_path, args.training_data_path, args.activation, args.num_epoch, args.save_after_every, args.visualize_after_every, args.show_after_every)
+        train(args.dataset, args.nef, args.ndf, args.ngf, args.nc, args.batch_size, args.Z, args.lr, args.beta1,
+              args.epsilon, ctx, check_point, args.g_dl_weight, args.output_path, args.checkpoint_path,
+              args.training_data_path, args.activation, args.num_epoch, args.save_after_every,
+              args.visualize_after_every, args.show_after_every)
 
     if args.test:
-        test(args.nef, args.ngf, args.nc, 1, args.Z, ctx, args.pretrained_encoder_path, args.pretrained_generator_path, args.output_path, args.testing_data_path, args.activation, args.save_embedding, args.embedding_path)
+        test(args.nef, args.ngf, args.nc, 1, args.Z, ctx, args.pretrained_encoder_path, args.pretrained_generator_path,
+             args.output_path, args.testing_data_path, args.activation, args.save_embedding, args.embedding_path)
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

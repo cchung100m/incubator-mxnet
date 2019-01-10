@@ -14,14 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Download YearPredictionMSD dataset which contains predictions of the release year of a song from audio features.
+"""
 import bz2
 import os
 import shutil
-
-import mxnet as mx
 import numpy as np
 from sklearn.datasets import load_svmlight_file
+import mxnet as mx
 
 
 # Download data file
@@ -29,6 +30,9 @@ from sklearn.datasets import load_svmlight_file
 
 
 def get_year_prediction_data(dirname=None):
+    """
+    Get year prediction data from YearPredictionMSD
+    """
     feature_dim = 90
     if dirname is None:
         dirname = os.path.join(os.path.dirname(__file__), 'data')
@@ -37,13 +41,16 @@ def get_year_prediction_data(dirname=None):
     extracted_filename = os.path.join(dirname, filename)
     if not os.path.isfile(download_filename):
         print("Downloading data...")
-        mx.test_utils.download('https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/%s.bz2' % filename, dirname=dirname)
+        mx.test_utils.download('https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/regression/%s.bz2' % filename,
+                               dirname=dirname)
     if not os.path.isfile(extracted_filename):
         print("Extracting data...")
-        with bz2.BZ2File(download_filename) as fr, open(extracted_filename,"wb") as fw:
-            shutil.copyfileobj(fr,fw)
+        with bz2.BZ2File(download_filename) as fr, open(extracted_filename, "wb") as fw:
+            shutil.copyfileobj(fr, fw)
     print("Reading data from disk...")
-    train_features, train_labels = load_svmlight_file(extracted_filename, n_features=feature_dim, dtype=np.float32)
+    svmlight_tuple = load_svmlight_file(extracted_filename, n_features=feature_dim, dtype=np.float32)
+    train_features = svmlight_tuple[1]
+    train_labels = svmlight_tuple[3]
     train_features = train_features.todense()
 
     # normalize the data: subtract means and divide by standard deviations
@@ -56,4 +63,3 @@ def get_year_prediction_data(dirname=None):
     train_labels = (train_labels - label_mean) / label_std
 
     return feature_dim, train_features, train_labels
-

@@ -14,14 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-
-import mxnet as mx
+"""
+Generate helper functions to linear regression model
+"""
 import logging
 from mxnet.contrib.svrg_optimization.svrg_module import SVRGModule
+import mxnet as mx
 
 
 def create_lin_reg_network(train_features, train_labels, feature_dim, batch_size, update_freq, ctx, logger):
+    """
+    Create linear regression model
+    """
     # fit a linear regression model with mxnet SVRGModule
     print("Fitting linear regression with mxnet")
     train_iter = mx.io.NDArrayIter(train_features, train_labels, batch_size=batch_size, shuffle=True,
@@ -111,7 +115,7 @@ def calc_variance(grad_dict, num_batches, param_names):
         dictionary with new keys mapping to gradients variance
 
     """
-    for i in range(len(param_names)):
-        diff_sqr = mx.ndarray.square(mx.nd.subtract(grad_dict[param_names[i]],
-                                                    grad_dict[str.format(param_names[i]+"_expectation")]))
-        grad_dict[str.format(param_names[i] + "_variance")] = mx.ndarray.sum(diff_sqr, axis=0) / num_batches
+    for i, element in enumerate(param_names):
+        diff_sqr = mx.ndarray.square(mx.nd.subtract(grad_dict[element],
+                                                    grad_dict[str.format(element+"_expectation")]))
+        grad_dict[str.format(element + "_variance")] = mx.ndarray.sum(diff_sqr, axis=0) / num_batches

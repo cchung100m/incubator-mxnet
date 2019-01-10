@@ -72,38 +72,42 @@
 # INFO:root:Saved checkpoint to "sd-110-0500.params"
 # INFO:root:Epoch[499] Validation-accuracy=0.906050
 # ###########################################################################################
-
+"""
+shows the Residual Net implementation for 500 epochs on cifar_10 dataset.
+"""
 import os
-import sys
-import mxnet as mx
 import logging
-
 import sd_module
+import mxnet as mx
 
-def residual_module(death_rate, n_channel, name_scope, context, stride=1, bn_momentum=0.9):
+
+def residual_module(num_death_rate, n_channel, name_scope, context, stride=1, num_bn_momentum=0.9):
+    """
+    Create Residual Net
+    """
     data = mx.sym.Variable(name_scope + '_data')
 
     # computation branch:
     #   BN -> ReLU -> Conv -> BN -> ReLU -> Conv
     bn1 = mx.symbol.BatchNorm(data=data, name=name_scope + '_bn1', fix_gamma=False,
-        momentum=bn_momentum,
-        # Same with https://github.com/soumith/cudnn.torch/blob/master/BatchNormalization.lua
-        # cuDNN v5 don't allow a small eps of 1e-5
-        eps=2e-5
-    )
+                              momentum=num_bn_momentum,
+                              # Same with https://github.com/soumith/cudnn.torch/blob/master/BatchNormalization.lua
+                              # cuDNN v5 don't allow a small eps of 1e-5
+                              eps=2e-5
+                              )
     relu1 = mx.symbol.Activation(data=bn1, act_type='relu', name=name_scope+'_relu1')
-    conv1 = mx.symbol.Convolution(data=relu1, num_filter=n_channel, kernel=(3, 3), pad=(1,1),
+    conv1 = mx.symbol.Convolution(data=relu1, num_filter=n_channel, kernel=(3, 3), pad=(1, 1),
                                   stride=(stride, stride), name=name_scope+'_conv1')
-    bn2 = mx.symbol.BatchNorm(data=conv1, fix_gamma=False, momentum=bn_momentum,
+    bn2 = mx.symbol.BatchNorm(data=conv1, fix_gamma=False, momentum=num_bn_momentum,
                               eps=2e-5, name=name_scope+'_bn2')
     relu2 = mx.symbol.Activation(data=bn2, act_type='relu', name=name_scope+'_relu2')
-    conv2 = mx.symbol.Convolution(data=relu2, num_filter=n_channel, kernel=(3, 3), pad=(1,1),
+    conv2 = mx.symbol.Convolution(data=relu2, num_filter=n_channel, kernel=(3, 3), pad=(1, 1),
                                   stride=(1, 1), name=name_scope+'_conv2')
     sym_compute = conv2
 
     # skip branch
     if stride > 1:
-        sym_skip = mx.symbol.BatchNorm(data=data, fix_gamma=False, momentum=bn_momentum,
+        sym_skip = mx.symbol.BatchNorm(data=data, fix_gamma=False, momentum=num_bn_momentum,
                                        eps=2e-5, name=name_scope+'_skip_bn')
         sym_skip = mx.symbol.Activation(data=sym_skip, act_type='relu', name=name_scope+'_skip_relu')
         sym_skip = mx.symbol.Convolution(data=sym_skip, num_filter=n_channel, kernel=(3, 3), pad=(1, 1),
@@ -112,7 +116,7 @@ def residual_module(death_rate, n_channel, name_scope, context, stride=1, bn_mom
         sym_skip = None
 
     mod = sd_module.StochasticDepthModule(sym_compute, sym_skip, data_names=[name_scope+'_data'],
-                                          context=context, death_rate=death_rate)
+                                          context=context, death_rate=num_death_rate)
     return mod
 
 
@@ -127,10 +131,11 @@ death_mode = 'linear_decay'  # 'linear_decay' or 'uniform'
 
 n_classes = 10
 
-def get_death_rate(i_res_block):
+
+def get_death_rate(num_i_res_block):
     n_total_res_blocks = n_residual_blocks * 3
     if death_mode == 'linear_decay':
-        my_death_rate = float(i_res_block) / n_total_res_blocks * death_rate
+        my_death_rate = float(num_i_res_block) / n_total_res_blocks * death_rate
     else:
         my_death_rate = death_rate
     return my_death_rate
@@ -202,30 +207,27 @@ kv = mx.kvstore.create(kv_store)
 mx.test_utils.get_cifar10()
 
 data_shape = (3, 28, 28)
-train = mx.io.ImageRecordIter(
-    path_imgrec = os.path.join(data_dir, "train.rec"),
-    mean_img    = os.path.join(data_dir, "mean.bin"),
-    data_shape  = data_shape,
-    batch_size  = batch_size,
-    rand_crop   = True,
-    rand_mirror = True,
-    num_parts   = kv.num_workers,
-    part_index  = kv.rank)
+train = mx.io.ImageRecordIter(path_imgrec=os.path.join(data_dir, "train.rec"),
+                              mean_img=os.path.join(data_dir, "mean.bin"),
+                              data_shape=data_shape,
+                              batch_size=batch_size,
+                              rand_crop=True,
+                              rand_mirror=True,
+                              num_parts=kv.num_workers,
+                              part_index=kv.rank)
 
-val = mx.io.ImageRecordIter(
-    path_imgrec = os.path.join(data_dir, "test.rec"),
-    mean_img    = os.path.join(data_dir, "mean.bin"),
-    rand_crop   = False,
-    rand_mirror = False,
-    data_shape  = data_shape,
-    batch_size  = batch_size,
-    num_parts   = kv.num_workers,
-    part_index  = kv.rank)
+val = mx.io.ImageRecordIter(path_imgrec=os.path.join(data_dir, "test.rec"),
+                            mean_img=os.path.join(data_dir, "mean.bin"),
+                            rand_crop=False,
+                            rand_mirror=False,
+                            data_shape=data_shape,
+                            batch_size=batch_size,
+                            num_parts=kv.num_workers,
+                            part_index=kv.rank)
 
 logging.basicConfig(level=logging.DEBUG)
-mod_seq.fit(train, val,
-            optimizer_params={'learning_rate': base_lr, 'momentum': momentum,
-                              'lr_scheduler': lr_scheduler, 'wd': weight_decay},
+mod_seq.fit(train, val, ptimizer_params={'learning_rate': base_lr, 'momentum': momentum,
+                                         'lr_scheduler': lr_scheduler, 'wd': weight_decay},
             num_epoch=num_epochs, batch_end_callback=batch_end_callbacks,
             epoch_end_callback=epoch_end_callbacks,
             initializer=initializer)

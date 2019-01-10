@@ -14,8 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-
+"""
+Trains a linear regression model using SVRGModule on a real dataset, YearPredictionMSD.
+"""
 import argparse
 import mxnet as mx
 from common import create_lin_reg_network, create_logger

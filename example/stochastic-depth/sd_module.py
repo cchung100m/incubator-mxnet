@@ -14,13 +14,18 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+shows implementation of the stochastic depth algorithm
+"""
 import logging
-import mxnet as mx
 import numpy as np
+import mxnet as mx
 
 
 class RandomNumberQueue(object):
+    """
+    Create Random Number Queue
+    """
     def __init__(self, pool_size=1000):
         self._pool = np.random.rand(pool_size)
         self._index = 0
@@ -134,6 +139,9 @@ class StochasticDepthModule(mx.module.BaseModule):
             self._module_skip.borrow_optimizer(shared_module._module_skip)
 
     def forward(self, data_batch, is_train=None):
+        """
+        Execute forward process to stochastic depth algorithm
+        """
         if is_train is None:
             is_train = self._module_compute.for_training
 
@@ -158,6 +166,9 @@ class StochasticDepthModule(mx.module.BaseModule):
                 self._outputs[i] += self._open_rate * computed_outputs[i]
 
     def backward(self, out_grads=None):
+        """
+        Backward process to stochastic depth algorithm
+        """
         if self._module_skip:
             self._module_skip.backward(out_grads=out_grads)
             self._input_grads = self._module_skip.get_input_grads()

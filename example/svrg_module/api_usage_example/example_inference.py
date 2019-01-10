@@ -14,18 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-
-import mxnet as mx
-import numpy as np
+"""
+Provides example usage of SVRGModule inference.
+"""
 import logging
+import numpy as np
 from mxnet.contrib.svrg_optimization.svrg_module import SVRGModule
+import mxnet as mx
 
 
-def test_svrg_inference(args):
-    epoch = args.epochs
-    batch_size = args.batch_size
-    update_freq = args.update_freq
+def test_svrg_inference(arguments):
+    epoch = arguments.epochs
+    batch_size = arguments.batch_size
+    update_freq = arguments.update_freq
 
     train_iter, val_iter, mod = create_network(batch_size, update_freq)
     mod.fit(train_iter, eval_data=val_iter, eval_metric='mse', optimizer='sgd',
@@ -33,12 +34,15 @@ def test_svrg_inference(args):
             num_epoch=epoch)
 
 
-def get_validation_score(args):
-    epoch = args.epochs
-    batch_size = args.batch_size
-    update_freq = args.update_freq
+def get_validation_score(arguments):
+    """
+    Get validation score
+    """
+    epoch = arguments.epochs
+    batch_size = arguments.batch_size
+    update_freq = arguments.update_freq
 
-    train_iter, val_iter,  mod = create_network(batch_size, update_freq)
+    train_iter, val_iter, mod = create_network(batch_size, update_freq)
     mod.bind(data_shapes=train_iter.provide_data, label_shapes=train_iter.provide_label)
     mod.init_params(initializer=mx.init.Uniform(0.01), allow_missing=False, force_init=False, allow_extra=False)
     mod.init_optimizer(kvstore='local', optimizer='sgd', optimizer_params=(('learning_rate', 0.025),))
@@ -75,7 +79,8 @@ def create_network(batch_size, update_freq):
     weights = np.array([1.0, 2.0])
     label = data.dot(weights)
 
-    di = mx.io.NDArrayIter(data[:n_train, :], label[:n_train], batch_size=batch_size, shuffle=True, label_name='lin_reg_label')
+    di = mx.io.NDArrayIter(data[:n_train, :], label[:n_train], batch_size=batch_size, shuffle=True,
+                           label_name='lin_reg_label')
     val_iter = mx.io.NDArrayIter(data[n_train:, :], label[n_train:], batch_size=batch_size)
 
     X = mx.sym.Variable('data')

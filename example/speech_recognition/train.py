@@ -14,18 +14,21 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+demonstrates the basic usage of building Speech-To-Text (STT) models in MXNet
+"""
 import sys
 import json
-sys.path.insert(0, "../../python")
+
 import os.path
-#mxboard setting
+# mxboard setting
 from mxboard import SummaryWriter
 import mxnet as mx
 from config_util import get_checkpoint_path, parse_contexts
 from stt_metric import STTMetric
 from stt_bucketing_module import STTBucketingModule
 
+sys.path.insert(0, "../../python")
 
 
 def get_initializer(args):
@@ -34,6 +37,7 @@ def get_initializer(args):
     if init_type is mx.initializer.Xavier:
         return mx.initializer.Xavier(magnitude=init_scale, factor_type=args.config.get('train', 'factor_type'))
     return init_type(init_scale)
+
 
 class SimpleLRScheduler(mx.lr_scheduler.LRScheduler):
     """A simple lr schedule that simply return `dynamic_lr`. We will set `dynamic_lr`
@@ -48,6 +52,9 @@ class SimpleLRScheduler(mx.lr_scheduler.LRScheduler):
 
 
 def do_training(args, module, data_train, data_val, begin_epoch=0):
+    """
+    Create training process for STTBucketingModule
+    """
     from distutils.dir_util import mkpath
     from log_util import LogUtil
 
@@ -63,9 +70,11 @@ def do_training(args, module, data_train, data_val, begin_epoch=0):
 
     contexts = parse_contexts(args)
     num_gpu = len(contexts)
-    eval_metric = STTMetric(batch_size=batch_size, num_gpu=num_gpu, is_logging=enable_logging_validation_metric,is_epoch_end=True)
+    eval_metric = STTMetric(batch_size=batch_size, num_gpu=num_gpu, is_logging=enable_logging_validation_metric,
+                            is_epoch_end=True)
     # mxboard setting
-    loss_metric = STTMetric(batch_size=batch_size, num_gpu=num_gpu, is_logging=enable_logging_train_metric,is_epoch_end=False)
+    loss_metric = STTMetric(batch_size=batch_size, num_gpu=num_gpu, is_logging=enable_logging_train_metric,
+                            is_epoch_end=False)
 
     optimizer = args.config.get('optimizer', 'optimizer')
     learning_rate = args.config.getfloat('train', 'learning_rate')
@@ -79,7 +88,7 @@ def do_training(args, module, data_train, data_val, begin_epoch=0):
     show_every = args.config.getint('train', 'show_every')
     optimizer_params_dictionary = json.loads(args.config.get('optimizer', 'optimizer_params_dictionary'))
     kvstore_option = args.config.get('common', 'kvstore_option')
-    n_epoch=begin_epoch
+    n_epoch = begin_epoch
     is_bucketing = args.config.getboolean('arch', 'is_bucketing')
 
     if clip_gradient == 0:
@@ -104,13 +113,10 @@ def do_training(args, module, data_train, data_val, begin_epoch=0):
         model.set_params(arg_params, aux_params)
         module = model
     else:
-        module.bind(data_shapes=data_train.provide_data,
-                label_shapes=data_train.provide_label,
-                for_training=True)
+        module.bind(data_shapes=data_train.provide_data, label_shapes=data_train.provide_label, for_training=True)
 
     if begin_epoch == 0 and mode == 'train':
         module.init_params(initializer=get_initializer(args))
-
 
     lr_scheduler = SimpleLRScheduler(learning_rate=learning_rate)
 
@@ -149,7 +155,9 @@ def do_training(args, module, data_train, data_val, begin_epoch=0):
             #summary_writer.add_scalar('loss batch', loss_metric.get_batch_loss(), nbatch)
             if (nbatch+1) % save_checkpoint_every_n_batch == 0:
                 log.info('Epoch[%d] Batch[%d] SAVE CHECKPOINT', n_epoch, nbatch)
-                module.save_checkpoint(prefix=get_checkpoint_path(args)+"n_epoch"+str(n_epoch)+"n_batch", epoch=(int((nbatch+1)/save_checkpoint_every_n_batch)-1), save_optimizer_states=save_optimizer_states)
+                module.save_checkpoint(prefix=get_checkpoint_path(args)+"n_epoch"+str(n_epoch)+"n_batch",
+                                       epoch=(int((nbatch+1)/save_checkpoint_every_n_batch)-1),
+                                       save_optimizer_states=save_optimizer_states)
         # commented for Libri_sample data set to see only train cer
         log.info('---------validation---------')
         data_val.reset()
@@ -177,10 +185,11 @@ def do_training(args, module, data_train, data_val, begin_epoch=0):
         # save checkpoints
         if n_epoch % save_checkpoint_every_n_epoch == 0:
             log.info('Epoch[%d] SAVE CHECKPOINT', n_epoch)
-            module.save_checkpoint(prefix=get_checkpoint_path(args), epoch=n_epoch, save_optimizer_states=save_optimizer_states)
+            module.save_checkpoint(prefix=get_checkpoint_path(args), epoch=n_epoch,
+                                   save_optimizer_states=save_optimizer_states)
 
         n_epoch += 1
 
-        lr_scheduler.learning_rate=learning_rate/learning_rate_annealing
+        lr_scheduler.learning_rate = learning_rate/learning_rate_annealing
 
     log.info('FINISH')

@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Implement Imdb module for MSCOCO dataset:
+"""
 import os
 import numpy as np
 from dataset.imdb import Imdb
@@ -41,13 +43,11 @@ class Coco(Imdb):
         super(Coco, self).__init__('coco_' + basename)
         self.image_dir = image_dir
 
-        self.classes = self._load_class_names(names,
-            os.path.join(os.path.dirname(__file__), 'names'))
+        self.classes = self._load_class_names(names, os.path.join(os.path.dirname(__file__), 'names'))
 
         self.num_classes = len(self.classes)
         self._load_all(anno_file, shuffle)
         self.num_images = len(self.image_set_index)
-
 
     def image_path_from_index(self, index):
         """

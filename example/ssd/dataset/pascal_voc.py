@@ -14,12 +14,14 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Implement Imdb module for Pascal VOC dataset
+"""
 from __future__ import print_function
 import os
+import xml.etree.ElementTree as ET
 import numpy as np
 from dataset.imdb import Imdb
-import xml.etree.ElementTree as ET
 from evaluate.eval_voc import voc_eval
 import cv2
 
@@ -41,8 +43,7 @@ class PascalVoc(Imdb):
     is_train : boolean
         if true, will load annotations
     """
-    def __init__(self, image_set, year, devkit_path, shuffle=False, is_train=False,
-            names='pascal_voc.names'):
+    def __init__(self, image_set, year, devkit_path, shuffle=False, is_train=False, names='pascal_voc.names'):
         super(PascalVoc, self).__init__('voc_' + year + '_' + image_set)
         self.image_set = image_set
         self.year = year
@@ -51,11 +52,10 @@ class PascalVoc(Imdb):
         self.extension = '.jpg'
         self.is_train = is_train
 
-        self.classes = self._load_class_names(names,
-            os.path.join(os.path.dirname(__file__), 'names'))
+        self.classes = self._load_class_names(names, os.path.join(os.path.dirname(__file__), 'names'))
 
         self.config = {'use_difficult': True,
-                       'comp_id': 'comp4',}
+                       'comp_id': 'comp4', }
 
         self.num_classes = len(self.classes)
         self.image_set_index = self._load_image_set_index(shuffle)

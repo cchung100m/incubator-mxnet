@@ -14,8 +14,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate helper functions for configuration module to Single Shot MultiBox Object Detector
+"""
 import collections
+
 
 class DotDict(dict):
     """
@@ -69,11 +72,13 @@ def namedtuple_with_defaults(typename, field_names, default_values=()):
     T.__new__.__defaults__ = tuple(prototype)
     return T
 
+
 def merge_dict(a, b):
     """ merge dict a, b, with b overriding keys in a """
     c = a.copy()
     c.update(b)
     return c
+
 
 def zip_namedtuple(nt_list):
     """ accept list of namedtuple, return a dict of zipped fields """
@@ -82,12 +87,13 @@ def zip_namedtuple(nt_list):
     if not isinstance(nt_list, list):
         nt_list = [nt_list]
     for nt in nt_list:
-        assert type(nt) == type(nt_list[0])
-    ret = {k : [v] for k, v in nt_list[0]._asdict().items()}
+        assert isinstance(nt_list[0], nt)
+    ret = {k: [v] for k, v in nt_list[0]._asdict().items()}
     for nt in nt_list[1:]:
         for k, v in nt._asdict().items():
             ret[k].append(v)
     return ret
+
 
 def config_as_dict(cfg):
     """ convert raw configuration to unified dictionary """

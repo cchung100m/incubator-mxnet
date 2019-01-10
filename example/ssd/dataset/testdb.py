@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate a simple wrapper class for converting list of image to Imdb during testing
+"""
 import os
 from .imdb import Imdb
 
@@ -43,7 +45,6 @@ class TestDB(Imdb):
         self.num_images = num_images
         self.root_dir = root_dir if root_dir else None
         self.extension = extension if extension else None
-
 
     def image_path_from_index(self, index):
         """

@@ -14,37 +14,37 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate configuration module to Single Shot MultiBox Object Detector
+"""
 import os
-from .utils import DotDict, namedtuple_with_defaults, zip_namedtuple, config_as_dict
+from .utils import DotDict, namedtuple_with_defaults, config_as_dict
 
 RandCropper = namedtuple_with_defaults('RandCropper',
-    'min_crop_scales, max_crop_scales, \
-    min_crop_aspect_ratios, max_crop_aspect_ratios, \
-    min_crop_overlaps, max_crop_overlaps, \
-    min_crop_sample_coverages, max_crop_sample_coverages, \
-    min_crop_object_coverages, max_crop_object_coverages, \
-    max_crop_trials',
-    [0.0, 1.0,
-    0.5, 2.0,
-    0.0, 1.0,
-    0.0, 1.0,
-    0.0, 1.0,
-    25])
+                                       'min_crop_scales, max_crop_scales, \
+                                       min_crop_aspect_ratios, max_crop_aspect_ratios, \
+                                       min_crop_overlaps, max_crop_overlaps, \
+                                       min_crop_sample_coverages, max_crop_sample_coverages, \
+                                       min_crop_object_coverages, max_crop_object_coverages, \
+                                       max_crop_trials',
+                                       [0.0, 1.0,
+                                        0.5, 2.0,
+                                        0.0, 1.0,
+                                        0.0, 1.0,
+                                        0.0, 1.0,
+                                        25])
 
-RandPadder = namedtuple_with_defaults('RandPadder',
-    'rand_pad_prob, max_pad_scale, fill_value',
-    [0.0, 1.0, 127])
+RandPadder = namedtuple_with_defaults('RandPadder', 'rand_pad_prob, max_pad_scale, fill_value', [0.0, 1.0, 127])
 
 ColorJitter = namedtuple_with_defaults('ColorJitter',
-    'random_hue_prob, max_random_hue, \
-    random_saturation_prob, max_random_saturation, \
-    random_illumination_prob, max_random_illumination, \
-    random_contrast_prob, max_random_contrast',
-    [0.0, 18,
-    0.0, 32,
-    0.0, 32,
-    0.0, 0.5])
+                                       'random_hue_prob, max_random_hue, \
+                                       random_saturation_prob, max_random_saturation, \
+                                       random_illumination_prob, max_random_illumination, \
+                                       random_contrast_prob, max_random_contrast',
+                                       [0.0, 18,
+                                        0.0, 32,
+                                        0.0, 32,
+                                        0.0, 0.5])
 
 
 cfg = DotDict()
@@ -65,7 +65,7 @@ cfg.train.crop_emit_mode = 'center'
 cfg.train.rand_pad = RandPadder(rand_pad_prob=0.5, max_pad_scale=4.0)
 # random color jitter
 cfg.train.color_jitter = ColorJitter(random_hue_prob=0.5, random_saturation_prob=0.5,
-    random_illumination_prob=0.5, random_contrast_prob=0.5)
+                                     random_illumination_prob=0.5, random_contrast_prob=0.5)
 cfg.train.inter_method = 10  # random interpolation
 cfg.train.rand_mirror_prob = 0.5
 cfg.train.shuffle = True

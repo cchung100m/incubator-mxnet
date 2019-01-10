@@ -14,13 +14,13 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-import numpy as np
+"""
+Generate camera iterator class for capturing frames with opencv
+"""
 import cv2
 
 
-class CameraIterator():
+class CameraIterator:
     """
     An iterator that captures frames with opencv or the specified capture
     """
@@ -37,12 +37,10 @@ class CameraIterator():
                 self._frame_shape = (1, 3, width, height)
                 self._frame_resize = (width, height)
             else:
-                assert False, "frame_resize should be a tuple of (x,y) pixels "
-                "or a float setting the scaling factor"
+                assert False, "frame_resize should be a tuple of (x,y) pixels or a float setting the scaling factor"
         else:
-            self._frame_shape = (1, 3,
-                int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+            self._frame_shape = (1, 3, int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                                 int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
     def __iter__(self):
         return self

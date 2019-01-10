@@ -14,11 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Generate the new detection iterator wrapper for mx.io.ImageDetRecordIter which is
+written in C++, it takes record file as input and runs faster.
+Supports various augment operations for object detection.
+"""
 import numpy as np
+import mxnet as mx
 import cv2
 from tools.rand_sampler import RandSampler
+
 
 class DetRecordIter(mx.io.DataIter):
     """
@@ -59,21 +64,25 @@ class DetRecordIter(mx.io.DataIter):
     """
     def __init__(self, path_imgrec, batch_size, data_shape, path_imglist="",
                  label_width=-1, label_pad_width=-1, label_pad_value=-1,
-                 resize_mode='force',  mean_pixels=[123.68, 116.779, 103.939],
+                 resize_mode='force', mean_pixels=None,
                  **kwargs):
         super(DetRecordIter, self).__init__()
+
+        if mean_pixels is None:
+            mean_pixels = [123.68, 116.779, 103.939]
+
         self.rec = mx.io.ImageDetRecordIter(
-            path_imgrec     = path_imgrec,
-            path_imglist    = path_imglist,
-            label_width     = label_width,
-            label_pad_width = label_pad_width,
-            label_pad_value = label_pad_value,
-            batch_size      = batch_size,
-            data_shape      = data_shape,
-            mean_r          = mean_pixels[0],
-            mean_g          = mean_pixels[1],
-            mean_b          = mean_pixels[2],
-            resize_mode     = resize_mode,
+            path_imgrec=path_imgrec,
+            path_imglist=path_imglist,
+            label_width=label_width,
+            label_pad_width=label_pad_width,
+            label_pad_value=label_pad_value,
+            batch_size=batch_size,
+            data_shape=data_shape,
+            mean_r=mean_pixels[0],
+            mean_g=mean_pixels[1],
+            mean_b=mean_pixels[2],
+            resize_mode=resize_mode,
             **kwargs)
 
         self.provide_label = None
@@ -123,6 +132,7 @@ class DetRecordIter(mx.io.DataIter):
         self._batch.label = [mx.nd.array(label)]
         return True
 
+
 class DetIter(mx.io.DataIter):
     """
     Detection Iterator, which will feed data and label to network
@@ -155,17 +165,22 @@ class DetIter(mx.io.DataIter):
         be ignored
     """
     def __init__(self, imdb, batch_size, data_shape, \
-                 mean_pixels=[128, 128, 128], rand_samplers=[], \
+                 mean_pixels=None, rand_samplers=None, \
                  rand_mirror=False, shuffle=False, rand_seed=None, \
                  is_train=True, max_crop_trial=50):
         super(DetIter, self).__init__()
+
+        if rand_samplers is None:
+            rand_samplers = []
+        if mean_pixels is None:
+            mean_pixels = [128, 128, 128]
 
         self._imdb = imdb
         self.batch_size = batch_size
         if isinstance(data_shape, int):
             data_shape = (data_shape, data_shape)
         self._data_shape = data_shape
-        self._mean_pixels = mx.nd.array(mean_pixels).reshape((3,1,1))
+        self._mean_pixels = mx.nd.array(mean_pixels).reshape((3, 1, 1))
         if not rand_samplers:
             self._rand_samplers = []
         else:
@@ -210,9 +225,8 @@ class DetIter(mx.io.DataIter):
     def next(self):
         if self.iter_next():
             self._get_batch()
-            data_batch = mx.io.DataBatch(data=list(self._data.values()),
-                                   label=list(self._label.values()),
-                                   pad=self.getpad(), index=self.getindex())
+            data_batch = mx.io.DataBatch(data=list(self._data.values()), label=list(self._label.values()),
+                                         pad=self.getpad(), index=self.getindex())
             self._current += self.batch_size
             return data_batch
         else:
@@ -301,7 +315,7 @@ class DetIter(mx.io.DataIter):
                 tmp = 1.0 - label[valid_mask, 1]
                 label[valid_mask, 1] = 1.0 - label[valid_mask, 3]
                 label[valid_mask, 3] = tmp
-        data = mx.nd.transpose(data, (2,0,1))
+        data = mx.nd.transpose(data, (2, 0, 1))
         data = data.astype('float32')
         data = data - self._mean_pixels
         return data, label

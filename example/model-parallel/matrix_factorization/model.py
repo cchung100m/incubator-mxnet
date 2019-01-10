@@ -14,10 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Use matrix factorization algorithm for recommendations and also demonstrates the basic usage of group2ctxs in Module
+"""
 import mxnet as mx
 
+
 def matrix_fact_model_parallel_net(factor_size, num_hidden, max_user, max_item):
+    """
+    Construct Model Parallel Matrix Factorization
+    """
     # set ctx_group attribute to 'dev1' for the symbols created in this scope,
     # the symbols will be bound to the context that 'dev1' map to in group2ctxs
     with mx.AttrScope(ctx_group='dev1'):

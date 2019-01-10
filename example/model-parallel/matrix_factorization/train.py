@@ -14,12 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Train Model Parallel Matrix Factorization
+"""
 import argparse
 import logging
-import time
 import mxnet as mx
-import numpy as np
 from get_data import get_movielens_iter, get_movielens_data
 from model import matrix_fact_model_parallel_net
 
@@ -59,8 +59,8 @@ if __name__ == '__main__':
     optimizer = 'sgd'
     factor_size = args.factor_size
     print_every = args.print_every
-    num_gpus = args.num_gpus    
- 
+    num_gpus = args.num_gpus
+
     momentum = 0.9
     learning_rate = 0.1
 
@@ -76,16 +76,16 @@ if __name__ == '__main__':
 
     # construct the module
     # map the ctx_group attribute to the context assignment
-    group2ctxs={'dev1':[mx.cpu()]*num_gpus, 'dev2':[mx.gpu(i) for i in range(num_gpus)]}
+    group2ctxs = {'dev1': [mx.cpu()]*num_gpus, 'dev2': [mx.gpu(i) for i in range(num_gpus)]}
 
     # Creating a module by passing group2ctxs attribute which maps
     # the ctx_group attribute to the context assignment
     mod = mx.module.Module(symbol=net, context=[mx.cpu()]*num_gpus, data_names=['user', 'item'],
-        label_names=['score'], group2ctxs=group2ctxs)
-    
+                           label_names=['score'], group2ctxs=group2ctxs)
+
     # the initializer used to initialize the parameters
     initializer = mx.init.Xavier(factor_type="in", magnitude=2.34)
-    
+
     # the parameters for the optimizer constructor
     optimizer_params = {
         'learning_rate': learning_rate,
@@ -95,15 +95,15 @@ if __name__ == '__main__':
 
     # use MSE as the metric
     metric = mx.metric.create(['MSE'])
-    
+
     speedometer = mx.callback.Speedometer(batch_size, print_every)
-    
+
     # start training
     mod.fit(train_iter,
             val_iter,
-            eval_metric        = metric,
-            num_epoch          = num_epoch,
-            optimizer          = optimizer,
-            optimizer_params   = optimizer_params,
-            initializer        = initializer,
-            batch_end_callback = speedometer) 
+            eval_metric=metric,
+            num_epoch=num_epoch,
+            optimizer=optimizer,
+            optimizer_params=optimizer_params,
+            initializer=initializer,
+            batch_end_callback=speedometer)

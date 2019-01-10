@@ -17,34 +17,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Helper functions for processing dataset for entity recognition model
+"""
 # -*- coding: utf-8 -*-
 
 import pandas as pd
 import numpy as np
 
-#read in csv of NER training data
+# read in csv of NER training data
 df = pd.read_csv("../data/ner_dataset.csv", encoding="ISO-8859-1")
 
-#rename columns
-df = df.rename(columns = {"Sentence #" : "utterance_id",
-                            "Word" : "token", 
-                            "POS" : "POS_tag", 
-                            "Tag" : "BILOU_tag"})
+# rename columns
+df = df.rename(columns={"Sentence #": "utterance_id",
+                        "Word": "token",
+                        "POS": "POS_tag",
+                        "Tag": "BILOU_tag"})
 
-#clean utterance_id column
+# clean utterance_id column
 df.loc[:, "utterance_id"] = df["utterance_id"].str.replace('Sentence: ', '')
 
-#fill np.nan utterance ID's with the last valid entry
+# fill np.nan utterance ID's with the last valid entry
 df = df.fillna(method='ffill')
 df.loc[:, "utterance_id"] = df["utterance_id"].apply(int)
 
-#melt BILOU tags and tokens into an array per utterance
+# melt BILOU tags and tokens into an array per utterance
 df1 = df.groupby("utterance_id")["BILOU_tag"].apply(lambda x: np.array(x)).to_frame().reset_index()
 df2 = df.groupby("utterance_id")["token"].apply(lambda x: np.array(x)).to_frame().reset_index()
 df3 = df.groupby("utterance_id")["POS_tag"].apply(lambda x: np.array(x)).to_frame().reset_index()
 
-#join the results on utterance id
-df = df1.merge(df2.merge(df3, how = "left", on = "utterance_id"), how = "left", on = "utterance_id")
+# join the results on utterance id
+df = df1.merge(df2.merge(df3, how="left", on="utterance_id"), how="left", on="utterance_id")
 
-#save the dataframe to a csv file
+# save the dataframe to a csv file
 df.to_pickle("../data/ner_data.pkl")

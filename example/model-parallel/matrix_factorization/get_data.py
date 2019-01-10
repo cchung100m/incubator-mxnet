@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Download MovieLens dataset
+"""
+
 import os
 import mxnet as mx
 
@@ -25,6 +29,7 @@ def get_movielens_data(prefix):
         os.system("wget http://files.grouplens.org/datasets/movielens/%s.zip" % prefix)
         os.system("unzip %s.zip" % prefix)
         os.system("cd ml-10M100K; sh split_ratings.sh; cd -;")
+
 
 def get_movielens_iter(filename, batch_size):
     """Not particularly fast code to parse the text file and load into NDArrays.
@@ -49,8 +54,8 @@ def get_movielens_iter(filename, batch_size):
     item = mx.nd.array(item)
     score = mx.nd.array(score)
     # prepare data iters
-    data_train = {'user':user, 'item':item}
-    label_train = {'score':score}
-    iter_train = mx.io.NDArrayIter(data=data_train,label=label_train,
+    data_train = {'user': user, 'item':item}
+    label_train = {'score': score}
+    iter_train = mx.io.NDArrayIter(data=data_train, label=label_train,
                                    batch_size=batch_size, shuffle=True)
     return mx.io.PrefetchingIter(iter_train)

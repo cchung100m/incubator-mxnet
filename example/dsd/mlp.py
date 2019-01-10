@@ -15,12 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import mxnet as mx
+"""Implement DSD training coupled with SGD"""
+
 import os
 import logging
 import argparse
 from math import ceil
-import sparse_sgd
+import mxnet as mx
+
 
 # symbol net
 def get_symbol():
@@ -34,8 +36,12 @@ def get_symbol():
 
     return softmax
 
+
 # download ubyte version of mnist and untar
 def download_data():
+    """
+    Download dataset
+    """
     if not os.path.isdir("data/"):
         os.system("mkdir data/")
     if (not os.path.exists('data/train-images-idx3-ubyte')) or \
@@ -47,8 +53,23 @@ def download_data():
         os.system("unzip -u mnist.zip")
         os.chdir("..")
 
+
 # get data iterators
 def get_iters(batch_size):
+    """
+    Get iterator of dataset
+
+    Parameters:
+    ----------
+        batch_size:
+
+    Returns:
+    ----------
+    train: Iter
+        Iterator to training dataset
+    val: Iter
+        Iterator to evaluation dataset
+    """
     train = mx.io.MNISTIter(
         image="data/train-images-idx3-ubyte",
         label="data/train-labels-idx1-ubyte",
@@ -71,23 +92,31 @@ def get_iters(batch_size):
 
     return (train, val)
 
-def test_mlp(args):
+
+def test_mlp(args_list):
+    """
+
+    Parameters:
+    ----------
+    args_list: list of string
+      args of network hyper-parameters
+    """
     # get parameters
     prefix = './mlp'
     batch_size = 100
-    pruning_switch_epoch = [int(i) for i in args.pruning_switch_epoch.split(',')]
+    pruning_switch_epoch = [int(i) for i in args_list.pruning_switch_epoch.split(',')]
     num_epoch = pruning_switch_epoch[-1]
     batches_per_epoch = ceil(60000.0/batch_size)
-    weight_sparsity = args.weight_sparsity
-    bias_sparsity = args.bias_sparsity
-    weight_threshold = args.weight_threshold
-    bias_threshold = args.bias_threshold
-    if args.weight_sparsity:
-        weight_sparsity = [float(i) for i in args.weight_sparsity.split(',')]
-        bias_sparsity = [float(i) for i in args.bias_sparsity.split(',')]
+    weight_sparsity = args_list.weight_sparsity
+    bias_sparsity = args_list.bias_sparsity
+    weight_threshold = args_list.weight_threshold
+    bias_threshold = args_list.bias_threshold
+    if args_list.weight_sparsity:
+        weight_sparsity = [float(i) for i in args_list.weight_sparsity.split(',')]
+        bias_sparsity = [float(i) for i in args_list.bias_sparsity.split(',')]
     else:
-        weight_threshold = [float(i) for i in args.weight_threshold.split(',')]
-        bias_threshold = [float(i) for i in args.bias_threshold.split(',')]
+        weight_threshold = [float(i) for i in args_list.weight_threshold.split(',')]
+        bias_threshold = [float(i) for i in args_list.bias_threshold.split(',')]
 
     # get symbols and iterators
     sym = get_symbol()
@@ -101,23 +130,18 @@ def test_mlp(args):
         data_names=['data'],
         label_names=['sm_label'])
     optimizer_params = {
-        'learning_rate'             : 0.1,
-        'wd'                        : 0.004,
-        'momentum'                  : 0.9,
-        'pruning_switch_epoch'      : pruning_switch_epoch,
-        'batches_per_epoch'         : batches_per_epoch,
-        'weight_sparsity'           : weight_sparsity,
-        'bias_sparsity'             : bias_sparsity,
-        'weight_threshold'          : weight_threshold,
-        'bias_threshold'            : bias_threshold}
+        'learning_rate': 0.1,
+        'wd': 0.004,
+        'momentum': 0.9,
+        'pruning_switch_epoch': pruning_switch_epoch,
+        'batches_per_epoch': batches_per_epoch,
+        'weight_sparsity': weight_sparsity,
+        'bias_sparsity': bias_sparsity,
+        'weight_threshold': weight_threshold,
+        'bias_threshold': bias_threshold}
     logging.info('Start training...')
-    model.fit(train,
-        eval_data=val,
-        eval_metric='acc',
-        epoch_end_callback=mx.callback.do_checkpoint(prefix),
-        num_epoch=num_epoch,
-        optimizer='sparsesgd',
-        optimizer_params=optimizer_params)
+    model.fit(train, eval_data=val, eval_metric='acc', epoch_end_callback=mx.callback.do_checkpoint(prefix),
+              num_epoch=num_epoch, optimizer='sparsesgd', optimizer_params=optimizer_params)
     logging.info('Finish traning...')
 
     # remove files

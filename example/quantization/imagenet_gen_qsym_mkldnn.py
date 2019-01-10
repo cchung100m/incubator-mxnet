@@ -14,39 +14,48 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+This script has been designed to launch quantization for CNN models with Intel® MKL-DNN.
+This script integrates with Gluon-CV modelzoo, so that more pre-trained models can be downloaded from Gluon-CV
+and then converted for quantization.
+"""
 import argparse
 import os
 import logging
 from common import modelzoo
 import mxnet as mx
-import gluoncv
-from mxnet import gluon, nd, image
-from gluoncv import utils
+from mx.contrib.quantization import quantize_model, cpu
 from gluoncv.model_zoo import get_model
-from mxnet.contrib.quantization import *
-from mxnet.base import SymbolHandle, check_call, _LIB, mx_uint, c_str_array
-import ctypes
 
 
-def download_calib_dataset(dataset_url, calib_dataset, logger=None):
-    if logger is not None:
-        logger.info('Downloading calibration dataset from %s to %s' % (dataset_url, calib_dataset))
+def download_calib_dataset(dataset_url, calib_dataset, logger_operator=None):
+    if logger_operator is not None:
+        logger_operator.info('Downloading calibration dataset from %s to %s' % (dataset_url, calib_dataset))
     mx.test_utils.download(dataset_url, calib_dataset)
 
 
-def download_model(model_name, logger=None):
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    model_path = os.path.join(dir_path, 'model')
-    if logger is not None:
-        logger.info('Downloading model %s... into path %s' % (model_name, model_path))
-    return modelzoo.download_model(args.model, os.path.join(dir_path, 'model'))
+def download_model(model_name, logger_operator=None):
+    directory_path = os.path.dirname(os.path.realpath(__file__))
+    model_path = os.path.join(directory_path, 'model')
+    if logger_operator is not None:
+        logger_operator.info('Downloading model %s... into path %s' % (model_name, model_path))
+    return modelzoo.download_model(args.model, os.path.join(directory_path, 'model'))
 
-def convert_from_gluon(model_name, image_shape, classes=1000, logger=None):
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+def convert_from_gluon(model_name, num_image_shape, classes=1000, logger_operator=None):
+    """
+    Convert model from Gluon-CV ModelZoo into path
+
+    :param model_name: string
+    :param num_image_shape: tuple of dimension
+    :param classes: dimension of output
+    :param logger_operator: object of logger class
+    :return: string
+    """
+    directory_path = os.path.dirname(os.path.realpath(__file__))
     model_path = os.path.join(dir_path, 'model')
-    if logger is not None:
-        logger.info('Converting model from Gluon-CV ModelZoo %s... into path %s' % (model_name, model_path))
+    if logger_operator is not None:
+        logger_operator.info('Converting model from Gluon-CV ModelZoo %s... into path %s' % (model_name, model_path))
     net = get_model(name=model_name, classes=classes, pretrained=True)
     net.hybridize()
     x = mx.sym.var('data')
@@ -54,44 +63,45 @@ def convert_from_gluon(model_name, image_shape, classes=1000, logger=None):
     y = mx.sym.SoftmaxOutput(data=y, name='softmax')
     symnet = mx.symbol.load_json(y.tojson())
     params = net.collect_params()
-    args = {}
-    auxs = {}    
+    arguments = {}
+    auxs = {}
     for param in params.values():
         v = param._reduce()
         k = param.name
         if 'running' in k:
             auxs[k] = v
         else:
-            args[k] = v            
+            arguments[k] = v
     mod = mx.mod.Module(symbol=symnet, context=mx.cpu(),
-                        label_names = ['softmax_label'])
-    mod.bind(for_training=False, 
-             data_shapes=[('data', (1,) + 
-                          tuple([int(i) for i in image_shape.split(',')]))])
-    mod.set_params(arg_params=args, aux_params=auxs)
-    dst_dir = os.path.join(dir_path, 'model')
-    prefix = os.path.join(dir_path, 'model', model_name)
+                        label_names=['softmax_label'])
+    mod.bind(for_training=False,
+             data_shapes=[('data', (1,) + tuple([int(i) for i in num_image_shape.split(',')]))])
+    mod.set_params(arg_params=arguments, aux_params=auxs)
+    dst_dir = os.path.join(directory_path, 'model')
+    prefix_str = os.path.join(directory_path, 'model', model_name)
     if not os.path.isdir(dst_dir):
-        os.mkdir(dst_dir)       
-    mod.save_checkpoint(prefix, 0)
-    return prefix
-
-def save_symbol(fname, sym, logger=None):
-    if logger is not None:
-        logger.info('Saving symbol into file at %s' % fname)
-    sym.save(fname)
+        os.mkdir(dst_dir)
+    mod.save_checkpoint(prefix_str, 0)
+    return prefix_str
 
 
-def save_params(fname, arg_params, aux_params, logger=None):
-    if logger is not None:
-        logger.info('Saving params into file at %s' % fname)
-    save_dict = {('arg:%s' % k): v.as_in_context(cpu()) for k, v in arg_params.items()}
-    save_dict.update({('aux:%s' % k): v.as_in_context(cpu()) for k, v in aux_params.items()})
+def save_symbol(fname, symbol, logger_operator=None):
+    if logger_operator is not None:
+        logger_operator.info('Saving symbol into file at %s' % fname)
+    symbol.save(fname)
+
+
+def save_params(fname, args_params, auxs_params, logger_operator=None):
+    if logger_operator is not None:
+        logger_operator.info('Saving params into file at %s' % fname)
+    save_dict = {('arg:%s' % k): v.as_in_context(cpu()) for k, v in args_params.items()}
+    save_dict.update({('aux:%s' % k): v.as_in_context(cpu()) for k, v in auxs_params.items()})
     mx.nd.save(fname, save_dict)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate a calibrated quantized model from a FP32 model with Intel MKL-DNN support')
+    parser = argparse.ArgumentParser(description='Generate a calibrated quantized model from a FP32 model '
+                                                 'with Intel MKL-DNN support')
     parser.add_argument('--model', type=str, choices=['resnet50_v1',
                                                       'resnet101_v1',
                                                       'inceptionv3',
@@ -100,11 +110,12 @@ if __name__ == '__main__':
                                                       'imagenet1k-resnet-152',
                                                       'imagenet1k-inception-bn',
                                                       'custom'],
-                        help='currently only supports imagenet1k-resnet-50_v1, imagenet1k-resnet-152 or imagenet1k-inception-bn.'
+                        help='currently only supports imagenet1k-resnet-50_v1, imagenet1k-resnet-152 or '
+                             'imagenet1k-inception-bn.'
                              'you can set to custom to load your pre-trained model.')
     parser.add_argument('--use-gluon-model', type=bool, default=False,
                         help='If enabled, will download pretrained model from Gluon-CV '
-                             'and convert to symbolic model ')    
+                             'and convert to symbolic model ')
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--label-name', type=str, default='softmax_label')
     parser.add_argument('--calib-dataset', type=str, default='data/val_256_q90.rec',
@@ -116,16 +127,18 @@ if __name__ == '__main__':
                         help='number of batches for calibration')
     parser.add_argument('--exclude-first-conv', action='store_true', default=True,
                         help='excluding quantizing the first conv layer since the'
-                             ' input data may have negative value which doesn\'t support at moment' )
+                             ' input data may have negative value which doesn\'t support at moment')
     parser.add_argument('--shuffle-dataset', action='store_true', default=True,
                         help='shuffle the calibration dataset')
     parser.add_argument('--shuffle-chunk-seed', type=int, default=3982304,
                         help='shuffling chunk seed, see'
-                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight=imager#mxnet.io.ImageRecordIter'
+                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?'
+                             'highlight=imager#mxnet.io.ImageRecordIter'
                              ' for more details')
     parser.add_argument('--shuffle-seed', type=int, default=48564309,
                         help='shuffling seed, see'
-                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?highlight=imager#mxnet.io.ImageRecordIter'
+                             ' https://mxnet.incubator.apache.org/api/python/io/io.html?'
+                             'highlight=imager#mxnet.io.ImageRecordIter'
                              ' for more details')
     parser.add_argument('--calib-mode', type=str, default='entropy',
                         help='calibration mode used for generating calibration table for the quantized symbol; supports'
@@ -153,10 +166,10 @@ if __name__ == '__main__':
     logger = logging.getLogger('logger')
     logger.setLevel(logging.INFO)
 
-    logger.info('shuffle_dataset=%s' % args.shuffle_dataset)
+    logger.info('shuffle_dataset=%s', args.shuffle_dataset)
 
     calib_mode = args.calib_mode
-    logger.info('calibration mode set to %s' % calib_mode)
+    logger.info('calibration mode set to %s', calib_mode)
 
     # download calibration dataset
     if calib_mode != 'none':
@@ -164,10 +177,12 @@ if __name__ == '__main__':
 
     # download model
     if args.model in ['resnet50_v1', 'resnet101_v1', 'squeezenet1.0', 'mobilenet1.0', 'inceptionv3']:
-        logger.info('model %s is converted from GluonCV' % args.model)
+        logger.info('model %s is converted from GluonCV', args.model)
         args.use_gluon_model = True
-    if args.use_gluon_model == True:
-        prefix = convert_from_gluon(model_name=args.model, image_shape=args.image_shape, classes=1000, logger=logger)
+
+    if args.use_gluon_model is True:
+        prefix = convert_from_gluon(model_name=args.model, num_image_shape=args.image_shape, classes=1000,
+                                    logger_operator=logger)
         epoch = 0
         sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
     elif args.model == 'custom':
@@ -176,21 +191,21 @@ if __name__ == '__main__':
         epoch = 0
         sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
     else:
-        prefix, epoch = download_model(model_name=args.model, logger=logger)
+        prefix, epoch = download_model(model_name=args.model, logger_operator=logger)
         sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
 
     sym = sym.get_backend_symbol('MKLDNN')
 
     # get batch size
     batch_size = args.batch_size
-    logger.info('batch size = %d for calibration' % batch_size)
+    logger.info('batch size = %d for calibration', batch_size)
 
     # get number of batches for calibration
     num_calib_batches = args.num_calib_batches
     if calib_mode == 'none':
         logger.info('skip calibration step as calib_mode is none')
     else:
-        logger.info('number of batches = %d for calibration' % num_calib_batches)
+        logger.info('number of batches = %d for calibration', num_calib_batches)
 
     # get number of threads for decoding the dataset
     data_nthreads = args.data_nthreads
@@ -225,7 +240,11 @@ if __name__ == '__main__':
         rgb_mean = '123.68,116.779,103.939'
         rgb_std = '58.393, 57.12, 57.375'
         calib_layer = lambda name: name.endswith('_output')
-        excluded_sym_names += ['squeezenet0_flatten0_flatten0']
+        excluded_sym_names += ['squeezenet0_flatten0_flatten0',
+                               'squeezenet0_pool0_fwd',
+                               'squeezenet0_pool1_fwd',
+                               'squeezenet0_pool2_fwd',
+                               'squeezenet0_pool3_fwd']
         if exclude_first_conv:
             excluded_sym_names += ['squeezenet0_conv0_fwd']
     elif args.model == 'mobilenet1.0':
@@ -262,22 +281,20 @@ if __name__ == '__main__':
         raise ValueError('model %s is not supported in this script' % args.model)
 
     label_name = args.label_name
-    logger.info('label_name = %s' % label_name)
+    logger.info('label_name = %s', label_name)
 
     data_shape = tuple([int(i) for i in image_shape.split(',')])
-    logger.info('Input data shape = %s' % str(data_shape))
+    logger.info('Input data shape = %s', str(data_shape))
 
-    logger.info('rgb_mean = %s' % rgb_mean)
+    logger.info('rgb_mean = %s', rgb_mean)
     rgb_mean = [float(i) for i in rgb_mean.split(',')]
     mean_args = {'mean_r': rgb_mean[0], 'mean_g': rgb_mean[1], 'mean_b': rgb_mean[2]}
-    logger.info('rgb_std = %s' % rgb_std)
+    logger.info('rgb_std = %s', rgb_std)
     rgb_std = [float(i) for i in rgb_std.split(',')]
-    std_args = {'std_r': rgb_std[0], 'std_g': rgb_std[1], 'std_b': rgb_std[2]}    
-    combine_mean_std = {}
-    combine_mean_std.update(mean_args)
-    combine_mean_std.update(std_args)
+    std_args = {'std_r': rgb_std[0], 'std_g': rgb_std[1], 'std_b': rgb_std[2]}
+
     if calib_mode == 'none':
-        logger.info('Quantizing FP32 model %s' % args.model)
+        logger.info('Quantizing FP32 model %s', args.model)
         qsym, qarg_params, aux_params = quantize_model(sym=sym, arg_params=arg_params, aux_params=aux_params,
                                                        ctx=ctx, excluded_sym_names=excluded_sym_names,
                                                        calib_mode=calib_mode, quantized_dtype=args.quantized_dtype,
@@ -296,15 +313,16 @@ if __name__ == '__main__':
                                      shuffle=args.shuffle_dataset,
                                      shuffle_chunk_seed=args.shuffle_chunk_seed,
                                      seed=args.shuffle_seed,
-                                     **combine_mean_std)
+                                     **mean_args,
+                                     **std_args)
 
         qsym, qarg_params, aux_params = quantize_model(sym=sym, arg_params=arg_params, aux_params=aux_params,
-                                                        ctx=ctx, excluded_sym_names=excluded_sym_names,
-                                                        calib_mode=calib_mode, calib_data=data,
-                                                        num_calib_examples=num_calib_batches * batch_size,
-                                                        calib_layer=calib_layer, quantized_dtype=args.quantized_dtype,
-                                                        label_names=(label_name,), calib_quantize_op = True,
-                                                        logger=logger)
+                                                       ctx=ctx, excluded_sym_names=excluded_sym_names,
+                                                       calib_mode=calib_mode, calib_data=data,
+                                                       num_calib_examples=num_calib_batches * batch_size,
+                                                       calib_layer=calib_layer, quantized_dtype=args.quantized_dtype,
+                                                       label_names=(label_name,), calib_quantize_op=True,
+                                                       logger=logger)
         if calib_mode == 'entropy':
             suffix = '-quantized-%dbatches-entropy' % num_calib_batches
         elif calib_mode == 'naive':

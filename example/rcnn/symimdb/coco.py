@@ -14,21 +14,26 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Helper functions for handling the coco dataset
+"""
 import os
 import json
-import numpy as np
 from builtins import range
-
+import numpy as np
 from symnet.logger import logger
-from .imdb import IMDB
 
 # coco api
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
+from .imdb import IMDB
+
 
 class coco(IMDB):
+    """
+    Create coco class to deal with the coco dataset
+    """
     classes = ['__background__',  # always index 0
                'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train',
                'truck', 'boat', 'traffic light', 'fire hydrant', 'stop sign',
@@ -60,7 +65,7 @@ class coco(IMDB):
         self._result_file = os.path.join(data_path, 'detections_{}_results.json'.format(image_set))
         # get roidb
         self._roidb = self._get_cached('roidb', self._load_gt_roidb)
-        logger.info('%s num_images %d' % (self.name, self.num_images))
+        logger.info('%s num_images %d', self.name, self.num_images)
 
     def _load_gt_roidb(self):
         _coco = COCO(self._anno_file)
@@ -69,7 +74,7 @@ class coco(IMDB):
         class_to_coco_ind = dict(zip(cats, _coco.getCatIds()))
         class_to_ind = dict(zip(self.classes, range(self.num_classes)))
         coco_ind_to_class_ind = dict([(class_to_coco_ind[cls], class_to_ind[cls])
-                                     for cls in self.classes[1:]])
+                                      for cls in self.classes[1:]])
 
         image_ids = _coco.getImgIds()
         gt_roidb = [self._load_annotation(_coco, coco_ind_to_class_ind, index) for index in image_ids]
@@ -142,10 +147,10 @@ class coco(IMDB):
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
-            logger.info('collecting %s results (%d/%d)' % (cls, cls_ind, self.num_classes - 1))
+            logger.info('collecting %s results (%d/%d)', cls, cls_ind, self.num_classes - 1)
             coco_cat_id = class_to_coco_ind[cls]
             results.extend(self._coco_results_one_category(detections[cls_ind], coco_cat_id))
-        logger.info('writing results json to %s' % self._result_file)
+        logger.info('writing results json to %s', self._result_file)
         with open(self._result_file, 'w') as f:
             json.dump(results, f, sort_keys=True, indent=4)
 
@@ -196,15 +201,15 @@ class coco(IMDB):
         precision = \
             coco_eval.eval['precision'][ind_lo:(ind_hi + 1), :, :, 0, 2]
         ap_default = np.mean(precision[precision > -1])
-        logger.info('~~~~ Mean and per-category AP @ IoU=%.2f,%.2f] ~~~~' % (IoU_lo_thresh, IoU_hi_thresh))
-        logger.info('%-15s %5.1f' % ('all', 100 * ap_default))
+        logger.info('~~~~ Mean and per-category AP @ IoU=%.2f,%.2f] ~~~~', IoU_lo_thresh, IoU_hi_thresh)
+        logger.info('%-15s %5.1f', 'all', 100 * ap_default)
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
             # minus 1 because of __background__
             precision = coco_eval.eval['precision'][ind_lo:(ind_hi + 1), :, cls_ind - 1, 0, 2]
             ap = np.mean(precision[precision > -1])
-            logger.info('%-15s %5.1f' % (cls, 100 * ap))
+            logger.info('%-15s %5.1f', cls, 100 * ap)
 
         logger.info('~~~~ Summary metrics ~~~~')
         coco_eval.summarize()

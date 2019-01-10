@@ -28,9 +28,9 @@ evaluate_detections
 roidb is a list of roi_rec
 roi_rec is a dict of keys ["index", "image", "height", "width", "boxes", "gt_classes", "flipped"]
 """
-
-from symnet.logger import logger
 import os
+from symnet.logger import logger
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -38,6 +38,9 @@ except ImportError:
 
 
 class IMDB(object):
+    """
+    Create IMDB class helper functions for image database
+    """
     classes = []
 
     def __init__(self, name, root_path):
@@ -78,11 +81,11 @@ class IMDB(object):
         num_roidb = len(self._roidb)
         self._roidb = [roi_rec for roi_rec in self._roidb if len(roi_rec['gt_classes'])]
         num_after = len(self._roidb)
-        logger.info('filter roidb: {} -> {}'.format(num_roidb, num_after))
+        logger.info('filter roidb: %d -> %d', num_roidb, num_after)
 
     def append_flipped_images(self):
         """Only flip boxes coordinates, images will be flipped when loading into network"""
-        logger.info('%s append flipped images to roidb' % self._name)
+        logger.info('%s append flipped images to roidb', self._name)
         roidb_flipped = []
         for roi_rec in self._roidb:
             boxes = roi_rec['boxes'].copy()
@@ -99,7 +102,7 @@ class IMDB(object):
 
     def evaluate_detections(self, detections, **kwargs):
         cache_path = os.path.join(self._root_path, 'cache', '{}_{}.pkl'.format(self._name, 'detections'))
-        logger.info('saving cache {}'.format(cache_path))
+        logger.info('saving cache %s', cache_path)
         with open(cache_path, 'wb') as fid:
             pickle.dump(detections, fid, pickle.HIGHEST_PROTOCOL)
         self._evaluate_detections(detections, **kwargs)
@@ -107,14 +110,14 @@ class IMDB(object):
     def _get_cached(self, cache_item, fn):
         cache_path = os.path.join(self._root_path, 'cache', '{}_{}.pkl'.format(self._name, cache_item))
         if os.path.exists(cache_path):
-            logger.info('loading cache {}'.format(cache_path))
+            logger.info('loading cache %s', cache_path)
             with open(cache_path, 'rb') as fid:
                 cached = pickle.load(fid)
             return cached
         else:
-            logger.info('computing cache {}'.format(cache_path))
+            logger.info('computing cache %s', cache_path)
             cached = fn()
-            logger.info('saving cache {}'.format(cache_path))
+            logger.info('saving cache %s', cache_path)
             with open(cache_path, 'wb') as fid:
                 pickle.dump(cached, fid, pickle.HIGHEST_PROTOCOL)
             return cached

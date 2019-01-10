@@ -14,15 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
+"""
+Helper functions for the data set preparation
+"""
 import numpy as np
-
+import mxnet as mx
 from symdata.anchor import AnchorGenerator, AnchorSampler
 from symdata.image import imdecode, resize, transform, get_image, tensor_vstack
 
 
 def load_test(filename, short, max_size, mean, std):
+    """
+    load test dataset
+    """
     # read and transform image
     im_orig = imdecode(filename)
     im, im_scale = resize(im_orig, short, max_size)
@@ -50,6 +54,9 @@ def generate_batch(im_tensor, im_info):
 
 
 class TestLoader(mx.io.DataIter):
+    """
+    Create TestLoader class to test helper functions for loading dataset
+    """
     def __init__(self, roidb, batch_size, short, max_size, mean, std):
         super(TestLoader, self).__init__()
 
@@ -103,6 +110,9 @@ class TestLoader(mx.io.DataIter):
             raise StopIteration
 
     def getdata(self):
+        """
+        Read dataset as tensor
+        """
         indices = self.getindex()
         im_tensor, im_info = [], []
         for index in indices:
@@ -128,6 +138,9 @@ class TestLoader(mx.io.DataIter):
 
 
 class AnchorLoader(mx.io.DataIter):
+    """
+    Create Anchor class for handling dataset
+    """
     def __init__(self, roidb, batch_size, short, max_size, mean, std,
                  feat_sym, anchor_generator: AnchorGenerator, anchor_sampler: AnchorSampler,
                  shuffle=False):
@@ -189,6 +202,9 @@ class AnchorLoader(mx.io.DataIter):
             raise StopIteration
 
     def getdata(self):
+        """
+        Load dataset as tensor
+        """
         indices = self.getindex()
         im_tensor, im_info, gt_boxes = [], [], []
         for index in indices:
@@ -204,6 +220,9 @@ class AnchorLoader(mx.io.DataIter):
         return self._data
 
     def getlabel(self):
+        """
+        Generate label
+        """
         im_tensor, im_info, gt_boxes = self._data
 
         # all stacked image share same anchors

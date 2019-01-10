@@ -24,12 +24,10 @@ Downloads the following:
 """
 
 from __future__ import print_function
-import sys
 import os
-import shutil
 import zipfile
-import gzip
 from mxnet.test_utils import download
+
 
 def unzip(filepath):
     print("Extracting: " + filepath)
@@ -38,7 +36,16 @@ def unzip(filepath):
         zf.extractall(dirpath)
     os.remove(filepath)
 
+
 def download_tagger(dirpath):
+    """
+    Download Stanford POS tagger
+
+    :param dirpath: string
+        directory to the file
+    :return:
+        new directory to the file
+    """
     tagger_dir = 'stanford-tagger'
     if os.path.exists(os.path.join(dirpath, tagger_dir)):
         print('Found Stanford POS Tagger - skip')
@@ -52,7 +59,15 @@ def download_tagger(dirpath):
     os.remove(filepath)
     os.rename(os.path.join(dirpath, zip_dir), os.path.join(dirpath, tagger_dir))
 
+
 def download_parser(dirpath):
+    """
+    Download Stanford parser
+    :param dirpath: string
+        directory to the file
+    :return:
+        new directory to the file
+    """
     parser_dir = 'stanford-parser'
     if os.path.exists(os.path.join(dirpath, parser_dir)):
         print('Found Stanford Parser - skip')
@@ -66,6 +81,7 @@ def download_parser(dirpath):
     os.remove(filepath)
     os.rename(os.path.join(dirpath, zip_dir), os.path.join(dirpath, parser_dir))
 
+
 def download_wordvecs(dirpath):
     if os.path.exists(dirpath):
         print('Found Glove vectors - skip')
@@ -75,7 +91,13 @@ def download_wordvecs(dirpath):
     url = 'http://www-nlp.stanford.edu/data/glove.840B.300d.zip'
     unzip(download(url, dirname=dirpath))
 
+
 def download_sick(dirpath):
+    """
+    Download SICK dataset (semantic relatedness task)
+    :param dirpath: string
+        directory to the file
+    """
     if os.path.exists(dirpath):
         print('Found SICK dataset - skip')
         return
@@ -87,6 +109,7 @@ def download_sick(dirpath):
     unzip(download(train_url, dirname=dirpath))
     unzip(download(trial_url, dirname=dirpath))
     unzip(download(test_url, dirname=dirpath))
+
 
 if __name__ == '__main__':
     base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))

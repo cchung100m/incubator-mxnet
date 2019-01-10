@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Trains a multi-layer RNN on WikiText-2 language modeling benchmark.
+"""
+
 import argparse
 import time
 import math
@@ -124,10 +128,10 @@ trainer = gluon.Trainer(model.collect_params(), 'sgd',
                         compression_params=compression_params)
 loss = gluon.loss.SoftmaxCrossEntropyLoss()
 
+
 ###############################################################################
 # Training code
 ###############################################################################
-
 def detach(hidden):
     if isinstance(hidden, (tuple, list)):
         hidden = [i.detach() for i in hidden]
@@ -135,7 +139,15 @@ def detach(hidden):
         hidden = hidden.detach()
     return hidden
 
+
 def eval(data_source):
+    """
+    Training process of multi-layer Word-level language modeling RNN
+
+    :param data_source: nd.array
+    :return: float
+        value of loss function
+    """
     total_L = 0.0
     ntotal = 0
     hidden = model.begin_state(func=mx.nd.zeros, batch_size=args.batch_size, ctx=context)
@@ -148,7 +160,11 @@ def eval(data_source):
         ntotal += L.size
     return total_L / ntotal
 
+
 def train():
+    """
+    Training process of multi-layer Word-level language modeling RNN
+    """
     best_val = float("Inf")
     for epoch in range(args.epochs):
         total_L = 0.0
@@ -173,26 +189,27 @@ def train():
 
             if i % args.log_interval == 0 and i > 0:
                 cur_L = total_L / args.log_interval
-                print('[Epoch %d Batch %d] loss %.2f, ppl %.2f'%(
-                    epoch, i, cur_L, math.exp(cur_L)))
+                print('[Epoch %d Batch %d] loss %.2f, ppl %.2f' %
+                      (epoch, i, cur_L, math.exp(cur_L)))
                 total_L = 0.0
 
         val_L = eval(val_data)
 
-        print('[Epoch %d] time cost %.2fs, valid loss %.2f, valid ppl %.2f'%(
-            epoch, time.time()-start_time, val_L, math.exp(val_L)))
+        print('[Epoch %d] time cost %.2fs, valid loss %.2f, valid ppl %.2f' %
+              (epoch, time.time()-start_time, val_L, math.exp(val_L)))
 
         if val_L < best_val:
             best_val = val_L
-            test_L = eval(test_data)
+            test_Loss = eval(test_data)
             model.save_parameters(args.save)
-            print('test loss %.2f, test ppl %.2f'%(test_L, math.exp(test_L)))
+            print('test loss %.2f, test ppl %.2f' % (test_Loss, math.exp(test_Loss)))
         else:
             args.lr = args.lr*0.25
             trainer.set_learning_rate(args.lr)
+
 
 if __name__ == '__main__':
     train()
     model.load_parameters(args.save, context)
     test_L = eval(test_data)
-    print('Best test loss %.2f, test ppl %.2f'%(test_L, math.exp(test_L)))
+    print('Best test loss %.2f, test ppl %.2f' % (test_L, math.exp(test_L)))

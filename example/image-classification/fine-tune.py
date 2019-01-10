@@ -14,32 +14,36 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+"""
+Fine-tune to pre-trained network symbol
+"""
 
 import os
 import argparse
 import logging
-logging.basicConfig(level=logging.DEBUG)
-from common import find_mxnet
+import numpy as np
 from common import data, fit, modelzoo
 import mxnet as mx
-import numpy as np
+
+logging.basicConfig(level=logging.DEBUG)
 
 
-def get_fine_tune_model(symbol, arg_params, num_classes, layer_name, dtype='float32'):
+def get_fine_tune_model(symbol, argument_params, num_classes, layer_name, dtype='float32'):
     """
     symbol: the pre-trained network symbol
-    arg_params: the argument parameters of the pre-trained model
+    argument_params: the argument parameters of the pre-trained model
     num_classes: the number of classes for the fine-tune datasets
     layer_name: the layer name before the last fully-connected layer
     """
     all_layers = symbol.get_internals()
-    net = all_layers[layer_name+'_output']
-    net = mx.symbol.FullyConnected(data=net, num_hidden=num_classes, name='fc')
+    network = all_layers[layer_name+'_output']
+    network = mx.symbol.FullyConnected(data=network, num_hidden=num_classes, name='fc')
     if dtype == 'float16':
-        net = mx.sym.Cast(data=net, dtype=np.float32)
-    net = mx.symbol.SoftmaxOutput(data=net, name='softmax')
-    new_args = dict({k:arg_params[k] for k in arg_params if 'fc' not in k})
-    return (net, new_args)
+        network = mx.sym.Cast(data=network, dtype=np.float32)
+    network = mx.symbol.SoftmaxOutput(data=network, name='softmax')
+    new_arguments = dict({k: arg_params[k] for k in argument_params if 'fc' not in k})
+    return network, new_arguments
+
 
 if __name__ == "__main__":
     # parse args
@@ -65,7 +69,6 @@ if __name__ == "__main__":
                         mom=0)
     args = parser.parse_args()
 
-
     # load pretrained model and params
     dir_path = os.path.dirname(os.path.realpath(__file__))
     (prefix, epoch) = modelzoo.download_model(
@@ -83,8 +86,7 @@ if __name__ == "__main__":
         # to float32 so that softmax can still be in float32.
         # if the network chosen from symols/ folder doesn't have cast for the new datatype,
         # it will still train in fp32
-        if args.network not in ['inception-v3',\
-                                 'inception-v4', 'resnet-v1', 'resnet', 'resnext', 'vgg']:
+        if args.network not in ['inception-v3', 'inception-v4', 'resnet-v1', 'resnet', 'resnext', 'vgg']:
             raise ValueError('Given network does not have support for dtypes other than float32.\
                 Please add a cast layer at the beginning to train in that mode.')
         from importlib import import_module
@@ -95,8 +97,8 @@ if __name__ == "__main__":
     (new_sym, new_args) = get_fine_tune_model(sym, arg_params, args.num_classes,
                                               args.layer_before_fullc, args.dtype)
     # train
-    fit.fit(args        = args,
-            network     = new_sym,
-            data_loader = data.get_rec_iter,
-            arg_params  = new_args,
-            aux_params  = aux_params)
+    fit.fit(args=args,
+            network=new_sym,
+            data_loader=data.get_rec_iter,
+            arg_params=new_args,
+            aux_params=aux_params)

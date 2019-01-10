@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Word-level language modeling RNN
+"""
+
 import mxnet as mx
 from mxnet import gluon
 from mxnet.gluon import nn, rnn
+
 
 class RNNModel(gluon.Block):
     """A model with an encoder, recurrent layer, and a decoder."""

@@ -18,31 +18,35 @@
 """
 Benchmark the scoring performance on various CNNs
 """
-from common import find_mxnet
+from importlib import import_module
+import argparse
+import time
+import logging
 from common.util import get_gpus
 import mxnet as mx
 import mxnet.gluon.model_zoo.vision as models
-from importlib import import_module
-import logging
-import argparse
-import time
-import numpy as np
+
+
 logging.basicConfig(level=logging.DEBUG)
 
 parser = argparse.ArgumentParser(description='SymbolAPI-based CNN inference performance benchmark')
-parser.add_argument('--network', type=str, default='all', 
-                                 choices=['all', 'alexnet', 'vgg-16', 'resnetv1-50', 'resnet-50',
-                                          'resnet-152', 'inception-bn', 'inception-v3', 
-                                          'inception-v4', 'inception-resnet-v2', 'mobilenet',
-                                          'densenet121', 'squeezenet1.1'])
+parser.add_argument('--network', type=str, default='all',
+                    choices=['all', 'alexnet', 'vgg-16', 'resnetv1-50', 'resnet-50',
+                             'resnet-152', 'inception-bn', 'inception-v3',
+                             'inception-v4', 'inception-resnet-v2', 'mobilenet',
+                             'densenet121', 'squeezenet1.1'])
 parser.add_argument('--batch-size', type=int, default=0,
-                     help='Batch size to use for benchmarking. Example: 32, 64, 128.'
-                          'By default, runs benchmark for batch sizes - 1, 32, 64, 128, 256')
+                    help='Batch size to use for benchmarking. Example: 32, 64, 128.'
+                    'By default, runs benchmark for batch sizes - 1, 32, 64, 128, 256')
 
 opt = parser.parse_args()
 
-def get_symbol(network, batch_size, dtype):
-    image_shape = (3,299,299) if network in ['inception-v3', 'inception-v4'] else (3,224,224)
+
+def get_symbol(network, batch_size, attr_dtype):
+    """
+    Generate CNN
+    """
+    image_shape = (3, 299, 299) if network in ['inception-v3', 'inception-v4'] else (3, 224, 224)
     num_layers = 0
     if network == 'inception-resnet-v2':
         network = network
@@ -59,25 +63,29 @@ def get_symbol(network, batch_size, dtype):
         sym = sym(data)
         sym = mx.sym.SoftmaxOutput(sym, name='softmax')
     else:
-        net = import_module('symbols.'+network)
-        sym = net.get_symbol(num_classes=1000,
-                             image_shape=','.join([str(i) for i in image_shape]),
-                             num_layers=num_layers,
-                             dtype=dtype)
-    return (sym, [('data', (batch_size,)+image_shape)])
+        network = import_module('symbols.'+network)
+        sym = network.get_symbol(num_classes=1000,
+                                 image_shape=','.join([str(i) for i in image_shape]),
+                                 num_layers=num_layers,
+                                 dtype=attr_dtype)
+    return sym, [('data', (batch_size,)+image_shape)]
 
-def score(network, dev, batch_size, num_batches, dtype):
+
+def score(network, dev, batch_size, num_batches, attr_dtype):
+    """
+    Generate score of network evaluation
+    """
     # get mod
-    sym, data_shape = get_symbol(network, batch_size, dtype)
+    sym, data_shape = get_symbol(network, batch_size, attr_dtype)
     mod = mx.mod.Module(symbol=sym, context=dev)
-    mod.bind(for_training     = False,
-             inputs_need_grad = False,
-             data_shapes      = data_shape)
+    mod.bind(for_training=False,
+             inputs_need_grad=False,
+             data_shapes=data_shape)
     mod.init_params(initializer=mx.init.Xavier(magnitude=2.))
 
     # get data
     data = [mx.random.uniform(-1.0, 1.0, shape=shape, ctx=dev) for _, shape in mod.data_shapes]
-    batch = mx.io.DataBatch(data, []) # empty label
+    batch = mx.io.DataBatch(data, [])  # empty label
 
     # run
     dry_run = 5                 # use 5 iterations to warm up
@@ -91,11 +99,12 @@ def score(network, dev, batch_size, num_batches, dtype):
     # return num images per second
     return num_batches*batch_size/(time.time() - tic)
 
+
 if __name__ == '__main__':
     if opt.network == 'all':
         networks = ['alexnet', 'vgg-16', 'resnetv1-50', 'resnet-50',
-                    'resnet-152', 'inception-bn', 'inception-v3', 
-                    'inception-v4', 'inception-resnet-v2', 
+                    'resnet-152', 'inception-bn', 'inception-v3',
+                    'inception-v4', 'inception-resnet-v2',
                     'mobilenet', 'densenet121', 'squeezenet1.1']
         logging.info('It may take some time to run all models, '
                      'set --network to run a specific one')
@@ -123,12 +132,12 @@ if __name__ == '__main__':
             for b in batch_sizes:
                 for dtype in ['float32', 'float16']:
                     if d == mx.cpu() and dtype == 'float16':
-                        #float16 is not supported on CPU
+                        # float16 is not supported on CPU
                         continue
                     elif net in ['inception-bn', 'alexnet'] and dtype == 'float16':
                         if not logged_fp16_warning:
-                            logging.info('Model definition for {} does not support float16'.format(net))
+                            logging.info('Model definition for %s does not support float16', net)
                             logged_fp16_warning = True
                     else:
-                        speed = score(network=net, dev=d, batch_size=b, num_batches=10, dtype=dtype)
+                        speed = score(network=net, dev=d, batch_size=b, num_batches=10, attr_dtype=dtype)
                         logging.info('batch size %2d, dtype %s, images/sec: %f', b, dtype, speed)

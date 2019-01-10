@@ -14,10 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Create neuron network for Deep Reinforcement Learning on atari
+"""
 import mxnet as mx
 
+
 def get_symbol_atari(act_dim):
+    """
+    Generate layers of network for atari
+    """
     net = mx.symbol.Variable('data')
     net = mx.symbol.Cast(data=net, dtype='float32')
     net = mx.symbol.Convolution(data=net, name='conv1', kernel=(8, 8), stride=(4, 4), num_filter=16)

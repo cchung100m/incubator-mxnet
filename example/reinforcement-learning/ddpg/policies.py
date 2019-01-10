@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate DeterministicMLPPolicy for Deep Deterministic Policy Gradient
+"""
 from utils import define_policy
 import mxnet as mx
 
@@ -49,16 +51,12 @@ class DeterministicMLPPolicy(Policy):
     for deterministic policy training.
     """
 
-    def __init__(
-        self,
-        env_spec):
+    def __init__(self, env_spec):
 
         super(DeterministicMLPPolicy, self).__init__(env_spec)
 
         self.obs = mx.symbol.Variable("obs")
-        self.act = define_policy(
-            self.obs,
-            self.env_spec.action_space.flat_dim)
+        self.act = define_policy(self.obs, self.env_spec.action_space.flat_dim)
 
     def get_output_symbol(self):
 
@@ -76,8 +74,10 @@ class DeterministicMLPPolicy(Policy):
 
         raise NotImplementedError
 
-    def define_exe(self, ctx, init, updater, input_shapes=None, args=None,
-                    grad_req=None):
+    def define_exe(self, ctx, init, updater, input_shapes=None, args=None, grad_req=None):
+        """
+        Define executor, initializer and updater
+        """
 
         # define an executor, initializer and updater for batch version
         self.exe = self.act.simple_bind(ctx=ctx, **input_shapes)
@@ -122,9 +122,3 @@ class DeterministicMLPPolicy(Policy):
         self.exe_one.forward(is_train=False)
 
         return self.exe_one.outputs[0].asnumpy()
-
-
-
-
-
-

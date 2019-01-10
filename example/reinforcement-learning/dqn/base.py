@@ -14,18 +14,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate base helper functions of Deep Q-Network
+"""
 from __future__ import absolute_import, division, print_function
-
+import logging
+from collections import OrderedDict
 import mxnet as mx
 import mxnet.ndarray as nd
-import numpy
-import os
-import pickle
-from collections import OrderedDict
 from utils import (get_bucket_key, save_params,
                    save_misc, load_params)
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -95,13 +93,16 @@ class Base(object):
         return self._buckets[self.curr_bucket_key]['sym']
 
     def switch_bucket(self, bucket_kwargs=None, data_shapes=None):
+        """
+        Generate bucket switch
+        """
         if bucket_kwargs is not None:
             self.curr_bucket_key = get_bucket_key(bucket_kwargs=bucket_kwargs)
         # 1. Check if bucket key exists
         if self.curr_bucket_key in self._buckets:
             if data_shapes is not None:
                 if tuple(data_shapes.items()) not in self._buckets[self.curr_bucket_key]['exe']:
-                    #TODO Optimize the reshaping functionality!
+                    # TODO Optimize the reshaping functionality!
                     self._buckets[self.curr_bucket_key]['exe'][tuple(data_shapes.items())] = \
                         self.exe.reshape(partial_shaping=True, allow_up_sizing=True, **data_shapes)
                     self._buckets[self.curr_bucket_key]['data_shapes'] = data_shapes
@@ -163,19 +164,22 @@ class Base(object):
                                         params=self.params,
                                         aux_states=self.aux_states)
         misc_saving_path = save_misc(dir_path=dir_path, epoch=epoch, name=self.name,
-                                     content={'data_shapes': {k: list(map(int, v)) for k, v in self.data_shapes.items()}})
-        logging.info('Saving %s, params: \"%s\", misc: \"%s\"',
-                     self.name, param_saving_path, misc_saving_path)
+                                     content={'data_shapes': {k: list(map(int, v))
+                                                              for k, v in self.data_shapes.items()}})
+        logging.info('Saving %s, params: \"%s\", misc: \"%s\"', self.name, param_saving_path, misc_saving_path)
 
     def load_params(self, name="", dir_path="", epoch=None):
+        """
+        load parameters of DQN
+        """
         params, aux_states, param_loading_path = load_params(dir_path=dir_path, epoch=epoch, name=name)
-        logging.info('Loading params from \"%s\" to %s' % (param_loading_path, self.name))
+        logging.info('Loading params from \"%s\" to %s', param_loading_path, self.name)
         for k, v in params.items():
             if k in self.params:
-                logging.debug('   Loading %s %s' %(k, str(v.shape)))
+                logging.debug('   Loading %s %s', k, str(v.shape))
                 self.params[k][:] = v
             else:
-                logging.warn("Found unused param in the saved model file: %s" % k)
+                logging.warning("Found unused param in the saved model file: %s", k)
         for k, v in aux_states.items():
             self.aux_states[k][:] = v
 
@@ -216,32 +220,35 @@ class Base(object):
         for k, v in arg_dict.items():
             exe.arg_dict[k][:] = v
         exe.forward(is_train=False)
-        assert 1 == len(exe.outputs)
+        assert len(exe.outputs) == 1
         for output in exe.outputs:
             output.wait_to_read()
         return exe.outputs[0]
 
     def forward(self, is_train=False, bucket_kwargs=None, **arg_dict):
-        #import time
-        #start = time.time()
+        """
+        Process forwarding of DQN
+        """
+        # import time
+        # start = time.time()
         data_shapes = {k: v.shape for k, v in arg_dict.items()}
         for name in self.learn_init_keys:
             data_shapes[name] = self.learn_init_key_shapes[name]
         self.switch_bucket(bucket_kwargs=bucket_kwargs,
                            data_shapes=data_shapes)
-        #end = time.time()
-        #print 'Swith Bucket:', end - start
-        #start = time.time()
+        # end = time.time()
+        # print 'Swith Bucket:', end - start
+        # start = time.time()
         for k, v in arg_dict.items():
             assert self.exe.arg_dict[k].shape == v.shape,\
                 "Shape not match: key %s, need %s, received %s" \
-                %(k, str(self.exe.arg_dict[k].shape), str(v.shape))
+                % (k, str(self.exe.arg_dict[k].shape), str(v.shape))
             self.exe.arg_dict[k][:] = v
         self.exe.forward(is_train=is_train)
         for output in self.exe.outputs:
             output.wait_to_read()
-        #end = time.time()
-        #print 'Forward:', end - start
+        # end = time.time()
+        # print 'Forward:', end - start
         return self.exe.outputs
 
     def backward(self, out_grads=None, **arg_dict):
@@ -253,11 +260,13 @@ class Base(object):
         self.exe.backward(out_grads=out_grads)
 
     def forward_backward(self, bucket_kwargs=None, out_grads=None, **arg_dict):
+        """
+        Generate forward and backward of DQN
+        """
         data_shapes = {k: v.shape for k, v in arg_dict.items()}
         for name in self.learn_init_keys:
             data_shapes[name] = self.learn_init_key_shapes[name]
-        self.switch_bucket(bucket_kwargs=bucket_kwargs,
-                           data_shapes=data_shapes)
+        self.switch_bucket(bucket_kwargs=bucket_kwargs, data_shapes=data_shapes)
         for k, v in arg_dict.items():
             self.exe.arg_dict[k][:] = v
         self.exe.forward(is_train=True)
@@ -269,7 +278,7 @@ class Base(object):
     def update(self, updater, params_grad=None):
         if params_grad is None:
             params_grad = self.params_grad
-        assert type(params_grad) is OrderedDict
+        assert isinstance(params_grad, OrderedDict)
         for ind, k in enumerate(self.params.keys()):
             updater(index=ind, grad=params_grad[k], weight=self.params[k])
 
@@ -306,14 +315,18 @@ class Base(object):
         return sum(v.size for v in self.params.values())
 
     def print_stat(self):
-        logging.info("Name: %s" % self.name)
+        """
+        Print parameters of symbol
+        """
+        logging.info("Name: %s", self.name)
         assert self.params is not None, "Fatal Error!"
         logging.info("Params: ")
         for k, v in self.params.items():
-            logging.info("   %s: %s" % (k, v.shape))
-        if self.aux_states is None or 0 == len(self.aux_states):
+            logging.info("   %s: %s", k, v.shape)
+        if self.aux_states is None or len(self.aux_states) == 0:
             logging.info("Aux States: None")
         else:
-            logging.info("Aux States: " + ' '.join(
-                ["%s:%s" % (str(k), str(v.shape)) for k, v in self.aux_states.items()]))
-        logging.info("Total Parameter Num: " + str(self.total_param_num))
+            log_str = ' '.join(["%s:%s" % (str(k), str(v.shape)) for k, v in self.aux_states.items()])
+            logging.info("Aux States: %s", log_str)
+
+        logging.info("Total Parameter Num: %s", str(self.total_param_num))

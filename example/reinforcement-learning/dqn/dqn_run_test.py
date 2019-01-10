@@ -16,20 +16,21 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-import mxnet.ndarray as nd
-import numpy
+"""
+Test Deep Q-Network for Breakout.
+"""
 import time
 import argparse
 import os
 import re
 import logging
 import sys
+import mxnet as mx
+import mxnet.ndarray as nd
 from base import Base
 from atari_game import AtariGame
 from utils import get_numpy_rng
-from operators import *
+from operators import dqn_sym_nature, dqn_sym_nips
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -43,6 +44,9 @@ npy_rng = get_numpy_rng()
 
 
 def collect_holdout_samples(game, num_steps=3200, sample_num=3200):
+    """
+    Collect holdout samples
+    """
     print("Begin Collecting Holdout Samples...")
     game.force_restart()
     game.begin_episode()
@@ -66,6 +70,9 @@ def calculate_avg_q(samples, qnet):
 
 
 def calculate_avg_reward(game, qnet, test_steps=125000, exploartion=0.05):
+    """
+    Generate reward for agent
+    """
     game.force_restart()
     action_num = len(game.action_set)
     total_reward = 0
@@ -108,6 +115,9 @@ def calculate_avg_reward(game, qnet, test_steps=125000, exploartion=0.05):
 
 
 def main():
+    """
+    Run Atari Game for testing DQN
+    """
     parser = argparse.ArgumentParser(description='Script to test the trained network on a game.')
     parser.add_argument('-r', '--rom', required=False, type=str,
                         default=os.path.join('roms', 'breakout.bin'),
@@ -134,8 +144,8 @@ def main():
     history_length = 4
     rows = 84
     cols = 84
-    ctx = re.findall('([a-z]+)(\d*)', args.ctx)
-    ctx = [(device, int(num)) if len(num) >0 else (device, 0) for device, num in ctx]
+    ctx = re.findall(r'([a-z]+)(\d*)', args.ctx)
+    ctx = [(device, int(num)) if len(num) > 0 else (device, 0) for device, num in ctx]
     q_ctx = mx.Context(*ctx[0])
     minibatch_size = 32
     epoch_range = [int(n) for n in args.epoch_range.split(',')]
@@ -170,6 +180,7 @@ def main():
         else:
             avg_reward = calculate_avg_reward(game, qnet, args.test_steps, exploartion)
             print("Epoch:%d Avg Reward: %f" % (epoch, avg_reward))
+
 
 if __name__ == '__main__':
     main()

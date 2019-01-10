@@ -16,18 +16,20 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import mxnet as mx
-import mxnet.ndarray as nd
-import numpy
-from base import Base
-from operators import *
-from atari_game import AtariGame
-from utils import get_numpy_rng, parse_ctx
-import logging
-import argparse
+"""
+Train Deep Q-Network for Breakout.
+"""
 import sys
 import time
+import logging
+import argparse
+import numpy
+import mxnet as mx
+import mxnet.ndarray as nd
+from base import Base
+from operators import os, dqn_sym_nature
+from atari_game import AtariGame
+from utils import get_numpy_rng, parse_ctx
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -47,6 +49,9 @@ class DQNInitializer(mx.initializer.Xavier):
 
 
 def main():
+    """
+    Run Atari Game
+    """
     parser = argparse.ArgumentParser(description='Script to test the trained network on a game.')
     parser.add_argument('-r', '--rom', required=False, type=str,
                         default=os.path.join('roms', 'breakout.bin'),
@@ -122,8 +127,7 @@ def main():
 
     use_easgd = False
     optimizer = mx.optimizer.create(name=args.optimizer, learning_rate=args.lr, eps=args.eps,
-                    clip_gradient=args.clip_gradient,
-                    rescale_grad=1.0, wd=args.wd)
+                                    clip_gradient=args.clip_gradient, rescale_grad=1.0, wd=args.wd)
     updater = mx.optimizer.get_updater(optimizer)
 
     qnet.print_stat()
@@ -156,8 +160,10 @@ def main():
                     if do_exploration:
                         action = npy_rng.randint(action_num)
                     else:
-                        # TODO Here we can in fact play multiple gaming instances simultaneously and make actions for each
-                        # We can simply stack the current_state() of gaming instances and give prediction for all of them
+                        # TODO Here we can in fact play multiple gaming instances simultaneously
+                        # TODO and make actions for each
+                        # We can simply stack the current_state() of gaming instances
+                        # and give prediction for all of them
                         # We need to wait after calling calc_score(.), which makes the program slow
                         # TODO Profiling the speed of this part!
                         current_state = game.current_state()
@@ -170,7 +176,8 @@ def main():
                 else:
                     action = npy_rng.randint(action_num)
 
-                # 2. Play the game for a single mega-step (Inside the game, the action may be repeated for several times)
+                # 2. Play the game for a single mega-step
+                # (Inside the game, the action may be repeated for several times)
                 game.play(action)
                 total_steps += 1
 
@@ -192,16 +199,13 @@ def main():
                     #     get the corresponding target rewards
                     if not args.double_q:
                         target_qval = target_qnet.forward(is_train=False, data=next_states)[0]
-                        target_rewards = rewards + nd.choose_element_0index(target_qval,
-                                                                nd.argmax_channel(target_qval))\
-                                           * (1.0 - terminate_flags) * discount
+                        num = nd.choose_element_0index(target_qval, nd.argmax_channel(target_qval))
+                        target_rewards = rewards + num * (1.0 - terminate_flags) * discount
                     else:
                         target_qval = target_qnet.forward(is_train=False, data=next_states)[0]
                         qval = qnet.forward(is_train=False, data=next_states)[0]
-
-                        target_rewards = rewards + nd.choose_element_0index(target_qval,
-                                                                nd.argmax_channel(qval))\
-                                           * (1.0 - terminate_flags) * discount
+                        num = nd.choose_element_0index(target_qval, nd.argmax_channel(qval))
+                        target_rewards = rewards + num * (1.0 - terminate_flags) * discount
                     outputs = qnet.forward(is_train=True,
                                            data=states,
                                            dqn_action=actions,
@@ -230,15 +234,14 @@ def main():
                 info_str += ", Avg Loss:%f/%d" % (episode_loss / episode_update_step,
                                                   episode_update_step)
             if episode_action_step > 0:
-                info_str += ", Avg Q Value:%f/%d" % (episode_q_value / episode_action_step,
-                                                  episode_action_step)
+                info_str += ", Avg Q Value:%f/%d" % (episode_q_value / episode_action_step, episode_action_step)
             if episode % 100 == 0:
                 logging.info(info_str)
         end = time.time()
         fps = steps_per_epoch / (end - start)
         qnet.save_params(dir_path=args.dir_path, epoch=epoch)
-        logging.info("Epoch:%d, FPS:%f, Avg Reward: %f/%d"
-                 % (epoch, fps, epoch_reward / float(episode), episode))
+        logging.info("Epoch:%d, FPS:%f, Avg Reward: %f/%d", epoch, fps, epoch_reward / float(episode), episode)
+
 
 if __name__ == '__main__':
     main()

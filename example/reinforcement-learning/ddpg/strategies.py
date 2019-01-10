@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate strategy class to get/reset action and evolve the state
+"""
 import numpy as np
 
 
@@ -38,12 +40,12 @@ class OUStrategy(BaseStrategy):
     where Wt denotes the Wiener process.
     """
 
-    def __init__(self, env_spec, mu=0, theta=0.15, sigma=0.3):
+    def __init__(self, env_spec_list, mu=0, theta=0.15, sigma=0.3):
 
         self.mu = mu
         self.theta = theta
         self.sigma = sigma
-        self.action_space = env_spec.action_space
+        self.action_space = env_spec_list.action_space
         self.state = np.ones(self.action_space.flat_dim) * self.mu
 
     def evolve_state(self):

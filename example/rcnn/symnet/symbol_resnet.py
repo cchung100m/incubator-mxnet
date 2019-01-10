@@ -15,15 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Generate ResNet
+"""
 import mxnet as mx
-from . import proposal_target
 
-eps=2e-5
-use_global_stats=True
-workspace=1024
+eps = 2e-5
+use_global_stats = True
+workspace = 1024
 
 
 def residual_unit(data, num_filter, stride, dim_match, name):
+    """
+    Generate the convolution layers and activation layers of ResNet
+    """
     bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=eps, use_global_stats=use_global_stats, name=name + '_bn1')
     act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
     conv1 = mx.sym.Convolution(data=act1, num_filter=int(num_filter * 0.25), kernel=(1, 1), stride=(1, 1), pad=(0, 0),
@@ -46,6 +51,9 @@ def residual_unit(data, num_filter, stride, dim_match, name):
 
 
 def get_resnet_feature(data, units, filter_list):
+    """
+    Generate the feature layers of ResNet
+    """
     # res1
     data_bn = mx.sym.BatchNorm(data=data, fix_gamma=True, eps=eps, use_global_stats=use_global_stats, name='bn_data')
     conv0 = mx.sym.Convolution(data=data_bn, num_filter=64, kernel=(7, 7), stride=(2, 2), pad=(3, 3),
@@ -57,24 +65,28 @@ def get_resnet_feature(data, units, filter_list):
     # res2
     unit = residual_unit(data=pool0, num_filter=filter_list[0], stride=(1, 1), dim_match=False, name='stage1_unit1')
     for i in range(2, units[0] + 1):
-        unit = residual_unit(data=unit, num_filter=filter_list[0], stride=(1, 1), dim_match=True, name='stage1_unit%s' % i)
+        unit = residual_unit(data=unit, num_filter=filter_list[0], stride=(1, 1), dim_match=True,
+                             name='stage1_unit%s' % i)
 
     # res3
     unit = residual_unit(data=unit, num_filter=filter_list[1], stride=(2, 2), dim_match=False, name='stage2_unit1')
     for i in range(2, units[1] + 1):
-        unit = residual_unit(data=unit, num_filter=filter_list[1], stride=(1, 1), dim_match=True, name='stage2_unit%s' % i)
+        unit = residual_unit(data=unit, num_filter=filter_list[1], stride=(1, 1), dim_match=True,
+                             name='stage2_unit%s' % i)
 
     # res4
     unit = residual_unit(data=unit, num_filter=filter_list[2], stride=(2, 2), dim_match=False, name='stage3_unit1')
     for i in range(2, units[2] + 1):
-        unit = residual_unit(data=unit, num_filter=filter_list[2], stride=(1, 1), dim_match=True, name='stage3_unit%s' % i)
+        unit = residual_unit(data=unit, num_filter=filter_list[2], stride=(1, 1), dim_match=True,
+                             name='stage3_unit%s' % i)
     return unit
 
 
 def get_resnet_top_feature(data, units, filter_list):
     unit = residual_unit(data=data, num_filter=filter_list[3], stride=(2, 2), dim_match=False, name='stage4_unit1')
     for i in range(2, units[3] + 1):
-        unit = residual_unit(data=unit, num_filter=filter_list[3], stride=(1, 1), dim_match=True, name='stage4_unit%s' % i)
+        unit = residual_unit(data=unit, num_filter=filter_list[3], stride=(1, 1), dim_match=True,
+                             name='stage4_unit%s' % i)
     bn1 = mx.sym.BatchNorm(data=unit, fix_gamma=False, eps=eps, use_global_stats=use_global_stats, name='bn1')
     relu1 = mx.sym.Activation(data=bn1, act_type='relu', name='relu1')
     pool1 = mx.symbol.Pooling(data=relu1, global_pool=True, kernel=(7, 7), pool_type='avg', name='pool1')
@@ -86,6 +98,9 @@ def get_resnet_train(anchor_scales, anchor_ratios, rpn_feature_stride,
                      num_classes, rcnn_feature_stride, rcnn_pooled_size, rcnn_batch_size,
                      rcnn_batch_rois, rcnn_fg_fraction, rcnn_fg_overlap, rcnn_bbox_stds,
                      units, filter_list):
+    """
+    Train ResNet with RPN and RCNN
+    """
     num_anchors = len(anchor_scales) * len(anchor_ratios)
 
     data = mx.symbol.Variable(name="data")
@@ -118,7 +133,8 @@ def get_resnet_train(anchor_scales, anchor_ratios, rpn_feature_stride,
     # rpn bbox regression
     rpn_bbox_pred = mx.symbol.Convolution(
         data=rpn_relu, kernel=(1, 1), pad=(0, 0), num_filter=4 * num_anchors, name="rpn_bbox_pred")
-    rpn_bbox_loss_ = rpn_bbox_weight * mx.symbol.smooth_l1(name='rpn_bbox_loss_', scalar=3.0, data=(rpn_bbox_pred - rpn_bbox_target))
+    rpn_bbox_loss_ = rpn_bbox_weight * mx.symbol.smooth_l1(name='rpn_bbox_loss_', scalar=3.0,
+                                                           data=(rpn_bbox_pred - rpn_bbox_target))
     rpn_bbox_loss = mx.sym.MakeLoss(name='rpn_bbox_loss', data=rpn_bbox_loss_, grad_scale=1.0 / rpn_batch_rois)
 
     # rpn proposal
@@ -140,7 +156,8 @@ def get_resnet_train(anchor_scales, anchor_ratios, rpn_feature_stride,
 
     # rcnn roi pool
     roi_pool = mx.symbol.ROIPooling(
-        name='roi_pool', data=conv_feat, rois=rois, pooled_size=rcnn_pooled_size, spatial_scale=1.0 / rcnn_feature_stride)
+        name='roi_pool', data=conv_feat, rois=rois, pooled_size=rcnn_pooled_size,
+        spatial_scale=1.0 / rcnn_feature_stride)
 
     # rcnn top feature
     top_feat = get_resnet_top_feature(roi_pool, units=units, filter_list=filter_list)
@@ -157,7 +174,8 @@ def get_resnet_train(anchor_scales, anchor_ratios, rpn_feature_stride,
     # reshape output
     label = mx.symbol.Reshape(data=label, shape=(rcnn_batch_size, -1), name='label_reshape')
     cls_prob = mx.symbol.Reshape(data=cls_prob, shape=(rcnn_batch_size, -1, num_classes), name='cls_prob_reshape')
-    bbox_loss = mx.symbol.Reshape(data=bbox_loss, shape=(rcnn_batch_size, -1, 4 * num_classes), name='bbox_loss_reshape')
+    bbox_loss = mx.symbol.Reshape(data=bbox_loss, shape=(rcnn_batch_size, -1, 4 * num_classes),
+                                  name='bbox_loss_reshape')
 
     # group output
     group = mx.symbol.Group([rpn_cls_prob, rpn_bbox_loss, cls_prob, bbox_loss, mx.symbol.BlockGrad(label)])
@@ -168,6 +186,9 @@ def get_resnet_test(anchor_scales, anchor_ratios, rpn_feature_stride,
                     rpn_pre_topk, rpn_post_topk, rpn_nms_thresh, rpn_min_size,
                     num_classes, rcnn_feature_stride, rcnn_pooled_size, rcnn_batch_size,
                     units, filter_list):
+    """
+    Evaluate ResNet with RPN and RCNN
+    """
     num_anchors = len(anchor_scales) * len(anchor_ratios)
 
     data = mx.symbol.Variable(name="data")
@@ -204,7 +225,8 @@ def get_resnet_test(anchor_scales, anchor_ratios, rpn_feature_stride,
 
     # rcnn roi pool
     roi_pool = mx.symbol.ROIPooling(
-        name='roi_pool', data=conv_feat, rois=rois, pooled_size=rcnn_pooled_size, spatial_scale=1.0 / rcnn_feature_stride)
+        name='roi_pool', data=conv_feat, rois=rois, pooled_size=rcnn_pooled_size,
+        spatial_scale=1.0 / rcnn_feature_stride)
 
     # rcnn top feature
     top_feat = get_resnet_top_feature(roi_pool, units=units, filter_list=filter_list)
@@ -218,7 +240,8 @@ def get_resnet_test(anchor_scales, anchor_ratios, rpn_feature_stride,
 
     # reshape output
     cls_prob = mx.symbol.Reshape(data=cls_prob, shape=(rcnn_batch_size, -1, num_classes), name='cls_prob_reshape')
-    bbox_pred = mx.symbol.Reshape(data=bbox_pred, shape=(rcnn_batch_size, -1, 4 * num_classes), name='bbox_pred_reshape')
+    bbox_pred = mx.symbol.Reshape(data=bbox_pred, shape=(rcnn_batch_size, -1, 4 * num_classes),
+                                  name='bbox_pred_reshape')
 
     # group output
     group = mx.symbol.Group([rois, cls_prob, bbox_pred])

@@ -14,64 +14,57 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import logging
+"""
+Train Deep Structured Semantic Model (DSSM) for content-based recommendations
+"""
 import math
-import random
-
-import mxnet as mx
-from mxnet import gluon, autograd, nd
+import logging
 import numpy as np
+import mxnet as mx
+import mxnet.notebook.callback
 
 logging.basicConfig(level=logging.DEBUG)
 
-def evaluate_network(network, data_iterator, ctx):
-    loss_acc = 0.
-    l2 = gluon.loss.L2Loss()
-    for i, (users, items, scores) in enumerate(data_iterator):
-        users_ = gluon.utils.split_and_load(users, ctx)
-        items_ = gluon.utils.split_and_load(items, ctx)
-        scores_ =gluon.utils.split_and_load(scores, ctx)
-        preds = [network(u, i) for u, i in zip(users_, items_)]
-        losses = [l2(p, s).asnumpy() for p, s in zip(preds, scores_)]         
-        loss_acc += sum(losses).mean()/len(ctx)
-    return loss_acc/(i+1)
 
-def train(network, train_data, test_data, epochs, learning_rate=0.01, optimizer='sgd', ctx=mx.gpu(0), num_epoch_lr=5, factor=0.2):
+def RMSE(label, pred):
+    ret = 0.0
+    n = 0.0
+    pred = pred.flatten()
+    for i, element in label:
+        ret += (element - pred[i]) * (element - pred[i])
+        n += 1.0
+    return math.sqrt(ret / n)
 
+
+def train(network, data_pair, num_epoch, learning_rate, optimizer='sgd', opt_args=None, ctx=None):
+    """
+    Train Deep Structured Semantic Model (DSSM)
+    """
     np.random.seed(123)  # Fix random seed for consistent demos
     mx.random.seed(123)  # Fix random seed for consistent demos
-    random.seed(123)  # Fix random seed for consistent demos
+    if ctx is None:
+        ctx = [mx.gpu(0)]
+    if not opt_args:
+        opt_args = {}
+    if optimizer == 'sgd' and (not opt_args):
+        opt_args['momentum'] = 0.9
 
-    schedule = mx.lr_scheduler.FactorScheduler(step=len(train_data)*len(ctx)*num_epoch_lr, factor=factor)
+    model = mx.model.FeedForward(
+        ctx=ctx,
+        symbol=network,
+        num_epoch=num_epoch,
+        optimizer=optimizer,
+        learning_rate=learning_rate,
+        wd=1e-4,
+        **opt_args
+    )
 
-    trainer = gluon.Trainer(network.collect_params(), optimizer,
-                            {'learning_rate':learning_rate, 'wd':0.0001, 'lr_scheduler':schedule})  
-                            #update_on_kvstore=False)
+    train_df, test = data_pair
 
-    l2 = gluon.loss.L2Loss()
-
-    network.hybridize()
-    
-    losses_output = []
-    for e in range(epochs):
-        loss_acc = 0.
-        for i, (users, items, scores) in enumerate(train_data):
-            
-            users_ = gluon.utils.split_and_load(users, ctx)
-            items_ = gluon.utils.split_and_load(items, ctx)
-            scores_ =gluon.utils.split_and_load(scores, ctx)
-
-            with autograd.record():
-                preds = [network(u, i) for u, i in zip(users_, items_)]
-                losses = [l2(p, s) for p, s in zip(preds, scores_)]
-
-            [l.backward() for l in losses]
-            loss_acc += sum([l.asnumpy() for l in losses]).mean()/len(ctx)
-            trainer.update(users.shape[0])
-
-        test_loss = evaluate_network(network, test_data, ctx)
-        train_loss = loss_acc/(i+1)
-        print("Epoch [{}], Training RMSE {:.4f}, Test RMSE {:.4f}".format(e, train_loss, test_loss))
-        losses_output.append((train_loss, test_loss))
-    return losses_output
+    lc = mxnet.notebook.callback.LiveLearningCurve('RMSE', 1)
+    model.fit(X=train_df,
+              eval_data=test,
+              eval_metric=RMSE,
+              **mxnet.notebook.callback.args_wrapper(lc)
+              )
+    return lc

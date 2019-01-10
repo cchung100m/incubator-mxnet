@@ -14,7 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+"""
+Generate model FRCNN
+"""
 import mxnet as mx
 
 
@@ -49,6 +51,9 @@ def infer_data_shape(symbol, data_shapes):
 
 
 def check_shape(symbol, data_shapes, arg_params, aux_params):
+    """
+    Check shape of dataset
+    """
     arg_shape_dict, aux_shape_dict = infer_param_shape(symbol, data_shapes)
     data_shape_dict, out_shape_dict = infer_data_shape(symbol, data_shapes)
     for k in symbol.list_arguments():
@@ -64,6 +69,9 @@ def check_shape(symbol, data_shapes, arg_params, aux_params):
 
 
 def initialize_frcnn(symbol, data_shapes, arg_params, aux_params):
+    """
+    Initialize the hyper-parameters of FRCNN
+    """
     arg_shape_dict, aux_shape_dict = infer_param_shape(symbol, data_shapes)
     arg_params['rpn_conv_3x3_weight'] = mx.random.normal(0, 0.01, shape=arg_shape_dict['rpn_conv_3x3_weight'])
     arg_params['rpn_conv_3x3_bias'] = mx.nd.zeros(shape=arg_shape_dict['rpn_conv_3x3_bias'])

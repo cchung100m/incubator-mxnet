@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Download model for the implementation of Neural Style Transfer and MSG-Net.
+"""
 import os
 import zipfile
 import shutil
@@ -24,7 +27,7 @@ zip_file_path = 'models/msgnet_21styles.zip'
 download('https://apache-mxnet.s3-accelerate.amazonaws.com/gluon/models/msgnet_21styles-2cb88353.zip', zip_file_path)
 
 with zipfile.ZipFile(zip_file_path) as zf:
-        zf.extractall()
+    zf.extractall()
 
 os.remove(zip_file_path)
 

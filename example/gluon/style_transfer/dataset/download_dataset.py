@@ -15,8 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os, zipfile
-import mxnet
+"""
+Download dataset for the implementation of Neural Style Transfer and MSG-Net.
+"""
+
+import zipfile
 from mxnet.test_utils import download
 
 def unzip_file(filename, outpath):

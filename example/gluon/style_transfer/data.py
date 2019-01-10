@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import mxnet.gluon.data as data
-
-from PIL import Image
+"""
+Helper functions to handle data for the implementation of Neural Style Transfer and MSG-Net.
+"""
 import os
 import os.path
+import mxnet.gluon.data as dt
+
+from PIL import Image
+
 
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
@@ -39,6 +43,19 @@ def find_classes(dir):
 
 
 def make_dataset(dir, class_to_idx):
+    """
+    Create dataset from image source
+
+    :param dir: string
+        directory to file
+    :param class_to_idx: nd.array
+        array to target/classification
+
+    Returns:
+    ---------
+    images: nd.array
+        list of images
+    """
     images = []
     dir = os.path.expanduser(dir)
     for target in sorted(os.listdir(dir)):
@@ -63,7 +80,7 @@ def pil_loader(path):
             return img.convert('RGB')
 
 
-class ImageFolder(data.Dataset):
+class ImageFolder(dt.Dataset):
     """A generic data loader where the images are arranged in this way: ::
 
         root/dog/xxx.png

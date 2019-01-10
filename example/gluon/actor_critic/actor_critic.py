@@ -15,12 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""The actor_critic module is score function to evaluate the agent performance in Reinforcement Learning"""
+
 from __future__ import print_function
 
 import argparse
-import gym
 from itertools import count
 import numpy as np
+import gym
 
 import mxnet as mx
 import mxnet.ndarray as F
@@ -46,6 +48,10 @@ env.seed(args.seed)
 
 
 class Policy(gluon.Block):
+    """
+    Policy Gradient(Actor) select policy based on probability
+
+    """
     def __init__(self, **kwargs):
         super(Policy, self).__init__(**kwargs)
         with self.name_scope():
@@ -56,8 +62,9 @@ class Policy(gluon.Block):
     def forward(self, x):
         x = self.dense(x)
         probs = self.action_pred(x)
-        values = self.value_pred(x)
-        return F.softmax(probs), values
+        _values = self.value_pred(x)
+        return F.softmax(probs), _values
+
 
 net = Policy()
 net.initialize(mx.init.Uniform(0.02))
@@ -71,9 +78,11 @@ for epoch in count(1):
     values = []
     heads = []
     actions = []
+    step = None
     with autograd.record():
         # Sample a sequence of actions
         for t in range(10000):
+            step = t
             state = mx.nd.array(np.expand_dims(state, 0))
             prob, value = net(state)
             action, logp = mx.nd.sample_multinomial(prob, get_prob=True)
@@ -88,7 +97,7 @@ for epoch in count(1):
                 break
 
         # reverse accumulate and normalize rewards
-        running_reward = running_reward * 0.99 + t * 0.01
+        running_reward = running_reward * 0.99 + step * 0.01
         R = 0
         for i in range(len(rewards)-1, -1, -1):
             R = rewards[i] + args.gamma * R
@@ -101,7 +110,7 @@ for epoch in count(1):
         L = sum([loss(value, mx.nd.array([r])) for r, value in zip(rewards, values)])
         final_nodes = [L]
         for logp, r, v in zip(heads, rewards, values):
-            reward = r - v.asnumpy()[0,0]
+            reward = r - v.asnumpy()[0, 0]
             # Here we differentiate the stochastic graph, corresponds to the
             # first term of equation (6) in https://arxiv.org/pdf/1506.05254.pdf
             # Optimizer minimizes the loss but we want to maximizing the reward,
@@ -109,12 +118,11 @@ for epoch in count(1):
             final_nodes.append(logp*(-reward))
         autograd.backward(final_nodes)
 
-    trainer.step(t)
+    trainer.step(step)
 
     if epoch % args.log_interval == 0:
-        print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
-            epoch, t, running_reward))
+        print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(epoch, step, running_reward))
     if running_reward > 200:
         print("Solved! Running reward is now {} and "
-              "the last episode runs to {} time steps!".format(running_reward, t))
+              "the last episode runs to {} time steps!".format(running_reward, step))
         break

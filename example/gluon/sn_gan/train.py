@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Train model of Generative Adversarial Networks based on CIFAR10 dataset.
+
 # This example is inspired by https://github.com/jason71995/Keras-GAN-Library,
 # https://github.com/kazizzad/DCGAN-Gluon-MxNet/blob/master/MxnetDCGAN.ipynb
 # https://github.com/apache/incubator-mxnet/blob/master/example/gluon/dc_gan/dcgan.py
-
+"""
 
 import os
 import random

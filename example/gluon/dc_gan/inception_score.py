@@ -14,21 +14,19 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
+""" inception_score to evaluate the model"""
+import sys
+import math
+import numpy as np
+import cv2
 from mxnet.gluon.model_zoo import vision as models
 import mxnet as mx
 from mxnet import nd
-import numpy as np
-import math
-import sys
-
-import cv2
-
 
 inception_model = None
 
 
-def get_inception_score(images, splits=10):
+def get_inception_score(images_array, splits=10):
     """
     Inception_score function.
         The images will be divided into 'splits' parts, and calculate each inception_score separately,
@@ -37,25 +35,25 @@ def get_inception_score(images, splits=10):
     :param splits:
     :return: mean and std of inception_score
     """
-    assert (images.shape[1] == 3)
+    assert (images_array.shape[1] == 3)
 
     # load inception model
     if inception_model is None:
         _init_inception()
 
     # resize images to adapt inception model(inceptionV3)
-    if images.shape[2] != 299:
-        images = resize(images, 299, 299)
+    if images_array.shape[2] != 299:
+        images_array = resize(images_array, 299, 299)
 
     preds = []
     bs = 4
-    n_batches = int(math.ceil(float(images.shape[0])/float(bs)))
+    n_batches = int(math.ceil(float(images_array.shape[0])/float(bs)))
 
     # to get the predictions/picture of inception model
     for i in range(n_batches):
         sys.stdout.write(".")
         sys.stdout.flush()
-        inps = images[(i * bs):min((i + 1) * bs, len(images))]
+        inps = images_array[(i * bs):min((i + 1) * bs, len(images_array))]
         # inps size. bs x 3 x 299 x 299
         pred = nd.softmax(inception_model(inps))
         # pred size. bs x 1000
@@ -82,11 +80,25 @@ def _init_inception():
     print("success import inception model, and the model is inception_v3!")
 
 
-def resize(images, w, h):
-    nums = images.shape[0]
+def resize(images_list, w, h):
+    """
+    Resize the images
+
+    Parameters:
+    ----------
+    :param images_list: list of images
+    :param w: int
+        width
+    :param h: int
+        height
+    Returns:
+    ----------
+    res: list of images
+    """
+    nums = images_list.shape[0]
     res = nd.random.uniform(0, 255, (nums, 3, w, h))
     for i in range(nums):
-        img = images[i, :, :, :]
+        img = images_list[i, :, :, :]
         img = mx.nd.transpose(img, (1, 2, 0))
         # Replace 'mx.image.imresize()' with 'cv2.resize()' because : Operator _cvimresize is not implemented for GPU.
         # img = mx.image.imresize(img, w, h)
